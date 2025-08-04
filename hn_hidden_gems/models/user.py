@@ -1,5 +1,4 @@
 from datetime import datetime
-from sqlalchemy.orm import foreign
 from .database import db
 
 class User(db.Model):
@@ -24,7 +23,7 @@ class User(db.Model):
     is_monitored = db.Column(db.Boolean, default=False)  # Flag for users we want to track closely
     
     # Relationships
-    posts = db.relationship('Post', primaryjoin="User.username == Post.author", back_populates='user', lazy='dynamic')
+    # Note: Post relationship temporarily removed to avoid SQLAlchemy issues
     
     def __repr__(self):
         return f'<User {self.username} (karma: {self.karma})>'
@@ -54,11 +53,13 @@ class User(db.Model):
     
     def update_stats(self):
         """Update user statistics from posts."""
-        self.total_posts = self.posts.count()
-        self.hidden_gems_count = self.posts.filter_by(is_hidden_gem=True).count()
+        from .post import Post
+        from .hall_of_fame import HallOfFame
+        
+        self.total_posts = Post.query.filter_by(author=self.username).count()
+        self.hidden_gems_count = Post.query.filter_by(author=self.username, is_hidden_gem=True).count()
         
         # Count hall of fame entries
-        from .hall_of_fame import HallOfFame
         self.hall_of_fame_count = HallOfFame.query.join(
             HallOfFame.post
         ).filter(Post.author == self.username).count()

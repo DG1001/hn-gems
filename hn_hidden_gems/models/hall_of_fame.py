@@ -165,7 +165,7 @@ class HallOfFame(db.Model):
             func.count(cls.id).label('total_entries'),
             func.count(cls.id).filter(cls.success_verified == True).label('verified_successes'),
             func.avg(cls.lead_time_hours).label('avg_lead_time'),
-            func.avg(cls.score_multiplier).label('avg_multiplier'),
+            func.avg(cls.success_hn_score / func.nullif(cls.discovery_hn_score, 0)).label('avg_multiplier'),
             func.count(cls.id).filter(cls.hn_age_at_discovery_hours < 6).label('early_discoveries')
         ).first()
         
