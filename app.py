@@ -9,7 +9,7 @@ that would otherwise be overlooked.
 import os
 import sys
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from werkzeug.exceptions import HTTPException
 
 # Add the project root to Python path
@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from hn_hidden_gems.config import config
 from hn_hidden_gems.models import db, init_db
-from hn_hidden_gems.web.routes import main, api
+from hn_hidden_gems.web.routes import main as main_bp, api
 from hn_hidden_gems.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -40,7 +40,7 @@ def create_app(config_name=None):
     db.init_app(app)
     
     # Register blueprints
-    app.register_blueprint(main)
+    app.register_blueprint(main_bp)
     app.register_blueprint(api)
     
     # Create tables if they don't exist

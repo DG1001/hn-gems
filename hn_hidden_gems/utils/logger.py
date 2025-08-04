@@ -33,7 +33,11 @@ def setup_logger(name: str = __name__) -> logging.Logger:
     
     # Console handler
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG if Config.DEBUG else logging.INFO)
+    # Check if we're in debug mode via environment or log level
+    is_debug = (Config.LOG_LEVEL == 'DEBUG' or 
+                os.environ.get('FLASK_ENV') == 'development' or
+                os.environ.get('FLASK_DEBUG', '').lower() == 'true')
+    console_handler.setLevel(logging.DEBUG if is_debug else logging.INFO)
     console_formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
