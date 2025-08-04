@@ -36,7 +36,7 @@ class Post(db.Model):
     # Relationships
     quality_score = db.relationship('QualityScore', back_populates='post', uselist=False)
     hall_of_fame_entry = db.relationship('HallOfFame', back_populates='post', uselist=False)
-    user = db.relationship('User', primaryjoin="Post.author == foreign(User.username)", back_populates='posts')
+    user = db.relationship('User', primaryjoin="Post.author == User.username", foreign_keys=[author], back_populates='posts')
     
     def __repr__(self):
         return f'<Post {self.hn_id}: {self.title[:50]}...>'

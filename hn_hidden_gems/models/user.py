@@ -24,7 +24,7 @@ class User(db.Model):
     is_monitored = db.Column(db.Boolean, default=False)  # Flag for users we want to track closely
     
     # Relationships
-    posts = db.relationship('Post', primaryjoin="User.username == foreign(Post.author)", back_populates='user', lazy='dynamic')
+    posts = db.relationship('Post', primaryjoin="User.username == Post.author", back_populates='user', lazy='dynamic')
     
     def __repr__(self):
         return f'<User {self.username} (karma: {self.karma})>'
