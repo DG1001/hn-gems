@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics Dashboard - HN Hidden Gems{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="text-center">
+                <h1 class="display-4 mb-3">
+                    <i class="fas fa-chart-bar text-info me-3"></i>
+                    Statistics Dashboard
+                </h1>
+                <p class="lead text-muted">
+                    Performance metrics and insights from our hidden gem discovery system
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="text-center py-5">
+        <i class="fas fa-spinner fa-spin fa-3x text-muted mb-3"></i>
+        <h3 class="text-muted">Loading statistics...</h3>
+    </div>
+
+    <!-- Statistics Content -->
+    <div id="statsContent" class="d-none">
+        <!-- Key Metrics -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-eye fa-2x text-primary mb-2"></i>
+                        <h4 class="mb-1" id="totalPosts">-</h4>
+                        <p class="text-muted mb-0">Total Posts Analyzed</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-gem fa-2x text-success mb-2"></i>
+                        <h4 class="mb-1" id="hiddenGems">-</h4>
+                        <p class="text-muted mb-0">Hidden Gems Found</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-trophy fa-2x text-warning mb-2"></i>
+                        <h4 class="mb-1" id="hallOfFameCount">-</h4>
+                        <p class="text-muted mb-0">Success Stories</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-percentage fa-2x text-info mb-2"></i>
+                        <h4 class="mb-1" id="successRate">-</h4>
+                        <p class="text-muted mb-0">Success Rate</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="row mb-4">
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-clock me-2"></i>Recent Activity (24h)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h3 class="text-primary" id="recentPosts">-</h3>
+                                <p class="text-muted mb-0">Posts Analyzed</p>
+                            </div>
+                            <div class="col-6">
+                                <h3 class="text-success" id="recentGems">-</h3>
+                                <p class="text-muted mb-0">Gems Discovered</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-brain me-2"></i>Analysis Quality
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <small class="text-muted">Average Interest Score</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-info" id="avgInterestBar"></div>
+                            </div>
+                            <small class="text-muted" id="avgInterestText">-</small>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">Average Spam Likelihood</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-danger" id="avgSpamBar"></div>
+                            </div>
+                            <small class="text-muted" id="avgSpamText">-</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Authors -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users me-2"></i>Top Hidden Gem Authors
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="topAuthorsContainer">
+                            <!-- Top authors will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hall of Fame Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-stopwatch me-2"></i>Discovery Performance
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h4 class="text-info" id="avgLeadTime">-</h4>
+                                <p class="text-muted mb-0">Avg Lead Time</p>
+                            </div>
+                            <div class="col-6">
+                                <h4 class="text-success" id="earlyDiscoveries">-</h4>
+                                <p class="text-muted mb-0">Early Discoveries</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>Score Improvement
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center">
+                            <h4 class="text-warning" id="avgMultiplier">-</h4>
+                            <p class="text-muted mb-0">Avg Score Multiplier</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Last Updated -->
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center text-muted">
+                    <small>
+                        <i class="fas fa-sync-alt me-1"></i>
+                        Last updated: <span id="lastUpdated">-</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Author Item Template -->
+<template id="topAuthorTemplate">
+    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+        <div>
+            <strong class="author-name"></strong>
+            <span class="text-muted author-karma"></span>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-primary author-gems"></span>
+            <small class="text-muted author-success"></small>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+});
+
+async function loadStats() {
+    const loadingState = document.getElementById('loadingState');
+    const statsContent = document.getElementById('statsContent');
+    
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        loadingState.classList.add('d-none');
+        statsContent.classList.remove('d-none');
+        
+        renderStats(data);
+        
+    } catch (error) {
+        console.error('Error loading stats:', error);
+        loadingState.innerHTML = `
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+            <h3 class="text-danger">Error loading statistics</h3>
+            <p class="text-muted">${error.message}</p>
+        `;
+    }
+}
+
+function renderStats(data) {
+    // Key metrics
+    document.getElementById('totalPosts').textContent = data.posts.total_posts.toLocaleString();
+    document.getElementById('hiddenGems').textContent = data.posts.hidden_gems.toLocaleString();
+    document.getElementById('hallOfFameCount').textContent = data.posts.hall_of_fame_count.toLocaleString();
+    document.getElementById('successRate').textContent = data.posts.success_rate.toFixed(1) + '%';
+    
+    // Recent activity
+    document.getElementById('recentPosts').textContent = data.recent_activity.posts_24h.toLocaleString();
+    document.getElementById('recentGems').textContent = data.recent_activity.gems_24h.toLocaleString();
+    
+    // Analysis quality
+    const avgInterest = data.quality.avg_interest_score;
+    const avgSpam = data.quality.avg_spam_likelihood;
+    
+    document.getElementById('avgInterestBar').style.width = (avgInterest * 100) + '%';
+    document.getElementById('avgInterestText').textContent = (avgInterest * 100).toFixed(1) + '%';
+    
+    document.getElementById('avgSpamBar').style.width = (avgSpam * 100) + '%';
+    document.getElementById('avgSpamText').textContent = (avgSpam * 100).toFixed(1) + '%';
+    
+    // Hall of Fame stats
+    if (data.hall_of_fame) {
+        document.getElementById('avgLeadTime').textContent = 
+            data.hall_of_fame.avg_lead_time_hours ? formatLeadTime(data.hall_of_fame.avg_lead_time_hours) : '-';
+        document.getElementById('earlyDiscoveries').textContent = data.hall_of_fame.early_discoveries.toLocaleString();
+        document.getElementById('avgMultiplier').textContent = 
+            data.hall_of_fame.avg_score_multiplier ? data.hall_of_fame.avg_score_multiplier.toFixed(1) + 'x' : '-';
+    }
+    
+    // Top authors
+    renderTopAuthors(data.top_authors || []);
+    
+    // Last updated
+    document.getElementById('lastUpdated').textContent = new Date(data.generated_at).toLocaleString();
+}
+
+function renderTopAuthors(authors) {
+    const container = document.getElementById('topAuthorsContainer');
+    const template = document.getElementById('topAuthorTemplate');
+    
+    if (authors.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No authors with hidden gems yet.</p>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    authors.forEach(author => {
+        const item = template.content.cloneNode(true);
+        
+        item.querySelector('.author-name').textContent = author.username;
+        item.querySelector('.author-karma').textContent = `(${author.karma} karma)`;
+        item.querySelector('.author-gems').textContent = `${author.hidden_gems_count} gems`;
+        
+        if (author.success_rate > 0) {
+            item.querySelector('.author-success').textContent = `${author.success_rate.toFixed(0)}% success`;
+        } else {
+            item.querySelector('.author-success').textContent = 'No successes yet';
+        }
+        
+        container.appendChild(item);
+    });
+}
+
+function formatLeadTime(hours) {
+    if (hours < 1) {
+        return `${Math.round(hours * 60)}m`;
+    } else if (hours < 24) {
+        return `${Math.round(hours)}h`;
+    } else {
+        const days = Math.round(hours / 24);
+        return `${days}d`;
+    }
+}
+</script>
+{% endblock %}

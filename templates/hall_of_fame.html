@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}Hall of Fame - HN Hidden Gems{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="text-center">
+                <h1 class="display-4 mb-3">
+                    <i class="fas fa-trophy text-warning me-3"></i>
+                    Hall of Fame
+                </h1>
+                <p class="lead text-muted">
+                    Hidden gems that we discovered early and later became successful
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Stories -->
+    <div class="row">
+        <div class="col-12">
+            <div id="hallOfFameContainer">
+                <!-- Hall of Fame entries will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="text-center py-5">
+        <i class="fas fa-spinner fa-spin fa-3x text-muted mb-3"></i>
+        <h3 class="text-muted">Loading success stories...</h3>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="text-center py-5 d-none">
+        <i class="fas fa-trophy fa-3x text-muted mb-3"></i>
+        <h3 class="text-muted">No success stories yet</h3>
+        <p class="text-muted">Check back later as we discover and track hidden gems!</p>
+    </div>
+</div>
+
+<!-- Hall of Fame Entry Template -->
+<template id="hofEntryTemplate">
+    <div class="card mb-4 hof-entry">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <h5 class="card-title mb-2">
+                        <a href="#" class="hof-title text-decoration-none" target="_blank"></a>
+                    </h5>
+                    <div class="hof-meta text-muted small mb-3">
+                        <span class="me-3">
+                            <i class="fas fa-user me-1"></i>
+                            <span class="hof-author"></span>
+                        </span>
+                        <span class="me-3">
+                            <i class="fas fa-calendar me-1"></i>
+                            Discovered <span class="hof-discovered"></span>
+                        </span>
+                        <span class="me-3">
+                            <i class="fas fa-rocket me-1"></i>
+                            Success <span class="hof-success"></span>
+                        </span>
+                    </div>
+                    <div class="hof-text text-muted mb-3 d-none"></div>
+                </div>
+                <div class="col-md-4">
+                    <div class="success-metrics">
+                        <div class="metric-item mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted small">Discovery Score:</span>
+                                <span class="badge bg-primary discovery-score"></span>
+                            </div>
+                        </div>
+                        <div class="metric-item mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted small">Score Growth:</span>
+                                <span class="badge bg-success score-growth"></span>
+                            </div>
+                        </div>
+                        <div class="metric-item mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted small">Lead Time:</span>
+                                <span class="badge bg-info lead-time"></span>
+                            </div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted small">Discovery Quality:</span>
+                                <span class="badge discovery-quality-badge"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-3 pt-3 border-top">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="hof-links">
+                        <a href="#" class="btn btn-outline-primary btn-sm hn-link" target="_blank">
+                            <i class="fas fa-external-link-alt me-1"></i>View on HN
+                        </a>
+                        <a href="#" class="btn btn-outline-secondary btn-sm original-link d-none" target="_blank">
+                            <i class="fas fa-link me-1"></i>Original Link
+                        </a>
+                    </div>
+                    <div class="success-type">
+                        <span class="badge success-type-badge"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadHallOfFame();
+});
+
+async function loadHallOfFame() {
+    const loadingState = document.getElementById('loadingState');
+    const emptyState = document.getElementById('emptyState');
+    const container = document.getElementById('hallOfFameContainer');
+    
+    try {
+        const response = await fetch('/api/gems/hall-of-fame?limit=50');
+        const data = await response.json();
+        
+        loadingState.classList.add('d-none');
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        if (data.entries.length === 0) {
+            emptyState.classList.remove('d-none');
+            return;
+        }
+        
+        renderHallOfFame(data.entries);
+        
+    } catch (error) {
+        console.error('Error loading hall of fame:', error);
+        loadingState.innerHTML = `
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+            <h3 class="text-danger">Error loading success stories</h3>
+            <p class="text-muted">${error.message}</p>
+        `;
+    }
+}
+
+function renderHallOfFame(entries) {
+    const container = document.getElementById('hallOfFameContainer');
+    const template = document.getElementById('hofEntryTemplate');
+    
+    container.innerHTML = '';
+    
+    entries.forEach(entry => {
+        const card = template.content.cloneNode(true);
+        const post = entry.post;
+        
+        if (!post) return;
+        
+        // Basic info
+        card.querySelector('.hof-title').textContent = post.title;
+        card.querySelector('.hof-title').href = post.url || post.hn_url;
+        card.querySelector('.hof-author').textContent = post.author;
+        card.querySelector('.hof-discovered').textContent = formatDate(entry.discovered_at);
+        card.querySelector('.hof-success').textContent = entry.success_at ? formatDate(entry.success_at) : 'Pending';
+        
+        // Text content
+        if (post.text) {
+            const textElement = card.querySelector('.hof-text');
+            textElement.textContent = post.text.substring(0, 150) + (post.text.length > 150 ? '...' : '');
+            textElement.classList.remove('d-none');
+        }
+        
+        // Metrics
+        card.querySelector('.discovery-score').textContent = (entry.discovery_score * 100).toFixed(0) + '%';
+        
+        if (entry.score_improvement) {
+            card.querySelector('.score-growth').textContent = `+${entry.score_improvement} points`;
+        } else {
+            card.querySelector('.score-growth').textContent = 'Pending';
+        }
+        
+        if (entry.lead_time_hours) {
+            card.querySelector('.lead-time').textContent = formatLeadTime(entry.lead_time_hours);
+        } else {
+            card.querySelector('.lead-time').textContent = 'Ongoing';
+        }
+        
+        // Discovery quality
+        const qualityBadge = card.querySelector('.discovery-quality-badge');
+        const quality = entry.discovery_quality;
+        qualityBadge.textContent = formatDiscoveryQuality(quality);
+        
+        switch (quality) {
+            case 'excellent':
+                qualityBadge.className = 'badge bg-success';
+                break;
+            case 'very_good':
+                qualityBadge.className = 'badge bg-info';
+                break;
+            case 'good':
+                qualityBadge.className = 'badge bg-warning';
+                break;
+            default:
+                qualityBadge.className = 'badge bg-secondary';
+        }
+        
+        // Success type
+        const successBadge = card.querySelector('.success-type-badge');
+        const successType = entry.success_type || 'discovered';
+        successBadge.textContent = formatSuccessType(successType);
+        
+        switch (successType) {
+            case 'viral':
+                successBadge.className = 'badge bg-danger';
+                break;
+            case 'front_page':
+                successBadge.className = 'badge bg-success';
+                break;
+            case 'top_100':
+                successBadge.className = 'badge bg-primary';
+                break;
+            default:
+                successBadge.className = 'badge bg-info';
+        }
+        
+        // Links
+        card.querySelector('.hn-link').href = post.hn_url;
+        if (post.url) {
+            const originalLink = card.querySelector('.original-link');
+            originalLink.href = post.url;
+            originalLink.classList.remove('d-none');
+        }
+        
+        container.appendChild(card);
+    });
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'Unknown';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+        return 'today';
+    } else if (diffDays === 1) {
+        return 'yesterday';
+    } else if (diffDays < 7) {
+        return `${diffDays} days ago`;
+    } else if (diffDays < 30) {
+        const weeks = Math.floor(diffDays / 7);
+        return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+    } else {
+        return date.toLocaleDateString();
+    }
+}
+
+function formatLeadTime(hours) {
+    if (hours < 1) {
+        return `${Math.round(hours * 60)}m`;
+    } else if (hours < 24) {
+        return `${Math.round(hours)}h`;
+    } else {
+        const days = Math.round(hours / 24);
+        return `${days}d`;
+    }
+}
+
+function formatDiscoveryQuality(quality) {
+    switch (quality) {
+        case 'excellent': return 'Excellent';
+        case 'very_good': return 'Very Good';
+        case 'good': return 'Good';
+        case 'late': return 'Late';
+        default: return 'Unknown';
+    }
+}
+
+function formatSuccessType(type) {
+    switch (type) {
+        case 'viral': return 'Viral (500+)';
+        case 'front_page': return 'Front Page (200+)';
+        case 'top_100': return 'Top 100';
+        case 'discovered': return 'Hidden Gem';
+        default: return type;
+    }
+}
+</script>
+{% endblock %}

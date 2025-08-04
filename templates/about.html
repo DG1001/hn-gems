@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}About - HN Hidden Gems{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="text-center mb-5">
+                <h1 class="display-4 mb-3">
+                    <i class="fas fa-info-circle text-primary me-3"></i>
+                    About HN Hidden Gems
+                </h1>
+                <p class="lead text-muted">
+                    Discovering quality content before it hits the front page
+                </p>
+            </div>
+
+            <!-- Origin Story -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                        The Origin Story
+                    </h3>
+                    <p class="card-text">
+                        This project was born from a personal frustration: submitting a quality "Show HN" post 
+                        that received zero traction simply because the account had only 1 karma point. Despite 
+                        being a genuinely useful project, it was buried under hundreds of other submissions.
+                    </p>
+                    <p class="card-text">
+                        We realized that Hacker News has a hidden bias toward established users. Great content 
+                        from new or low-karma accounts often gets overlooked, not because it lacks quality, 
+                        but because it lacks the social proof of an established reputation.
+                    </p>
+                    <blockquote class="blockquote">
+                        <p class="mb-0">"What if we could find the hidden gems before they become obvious?"</p>
+                    </blockquote>
+                </div>
+            </div>
+
+            <!-- How It Works -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="fas fa-cogs text-info me-2"></i>
+                        How It Works
+                    </h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Data Collection</h5>
+                            <ul>
+                                <li>Monitors HN's new posts feed in real-time</li>
+                                <li>Uses official HN Firebase API (no rate limits!)</li>
+                                <li>Supplements with Algolia HN Search for historical analysis</li>
+                                <li>Tracks author karma and account age</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Quality Analysis</h5>
+                            <ul>
+                                <li>AI-powered content evaluation</li>
+                                <li>Technical depth assessment</li>
+                                <li>Originality and innovation scoring</li>
+                                <li>Problem-solving potential analysis</li>
+                                <li>Advanced spam filtering</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="fas fa-star text-success me-2"></i>
+                        Key Features
+                    </h3>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="fas fa-broadcast-tower text-primary me-3 mt-1"></i>
+                                <div>
+                                    <h6>Live Hidden Gems Feed</h6>
+                                    <p class="text-muted small">Real-time discovery of quality posts from low-karma accounts</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="fas fa-trophy text-warning me-3 mt-1"></i>
+                                <div>
+                                    <h6>Hall of Fame</h6>
+                                    <p class="text-muted small">Track gems that later became successful</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="fas fa-chart-line text-info me-3 mt-1"></i>
+                                <div>
+                                    <h6>Success Metrics</h6>
+                                    <p class="text-muted small">Measure discovery accuracy and timing</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="fas fa-bell text-secondary me-3 mt-1"></i>
+                                <div>
+                                    <h6>Multiple Notifications</h6>
+                                    <p class="text-muted small">RSS, email, Discord, and Slack integration</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technology Stack -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="fas fa-code text-dark me-2"></i>
+                        Technology Stack
+                    </h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Backend</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fab fa-python text-primary me-2"></i>Python 3.11+</li>
+                                <li><i class="fas fa-server text-success me-2"></i>Flask web framework</li>
+                                <li><i class="fas fa-database text-info me-2"></i>SQLAlchemy ORM</li>
+                                <li><i class="fas fa-brain text-warning me-2"></i>OpenAI GPT for analysis</li>
+                                <li><i class="fas fa-memory text-danger me-2"></i>Redis for caching</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>APIs & Data</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-fire text-orange me-2"></i>HN Firebase API</li>
+                                <li><i class="fas fa-search text-blue me-2"></i>Algolia HN Search</li>
+                                <li><i class="fab fa-github text-dark me-2"></i>GitHub API integration</li>
+                                <li><i class="fas fa-rss text-warning me-2"></i>RSS feed generation</li>
+                                <li><i class="fas fa-envelope text-primary me-2"></i>Email notifications</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mission -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="fas fa-bullseye text-danger me-2"></i>
+                        Our Mission
+                    </h3>
+                    <p class="card-text">
+                        We believe that great ideas shouldn't be overlooked just because they come from 
+                        new or low-karma accounts. Innovation often comes from unexpected places, and 
+                        the best solutions sometimes come from people who are just starting their journey 
+                        in the tech community.
+                    </p>
+                    <p class="card-text">
+                        By surfacing these hidden gems early, we hope to:
+                    </p>
+                    <ul>
+                        <li>Give deserving projects the attention they merit</li>
+                        <li>Help new developers and entrepreneurs get discovered</li>
+                        <li>Create a more equitable platform for innovation</li>
+                        <li>Build a community that values quality over reputation</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-bar text-success me-2"></i>
+                        Our Impact
+                    </h3>
+                    <div class="row text-center" id="impactStats">
+                        <div class="col-md-3 mb-3">
+                            <h4 class="text-primary" id="impactPosts">-</h4>
+                            <p class="text-muted small">Posts Analyzed</p>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <h4 class="text-success" id="impactGems">-</h4>
+                            <p class="text-muted small">Hidden Gems Found</p>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <h4 class="text-warning" id="impactSuccess">-</h4>
+                            <p class="text-muted small">Success Stories</p>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <h4 class="text-info" id="impactAuthors">-</h4>
+                            <p class="text-muted small">Authors Helped</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contributing -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="fas fa-hands-helping text-primary me-2"></i>
+                        Get Involved
+                    </h3>
+                    <p class="card-text">
+                        This project is open source and welcomes contributions from the community.
+                    </p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="https://github.com/your-username/hn-hidden-gems" class="btn btn-outline-dark">
+                            <i class="fab fa-github me-2"></i>View Source Code
+                        </a>
+                        <a href="{{ url_for('api.rss_feed') }}" class="btn btn-outline-warning">
+                            <i class="fas fa-rss me-2"></i>Subscribe to RSS
+                        </a>
+                        <a href="mailto:feedback@hnhiddengems.com" class="btn btn-outline-primary">
+                            <i class="fas fa-envelope me-2"></i>Send Feedback
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadImpactStats();
+});
+
+async function loadImpactStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        
+        if (data.error) return;
+        
+        document.getElementById('impactPosts').textContent = data.posts.total_posts.toLocaleString();
+        document.getElementById('impactGems').textContent = data.posts.hidden_gems.toLocaleString();
+        document.getElementById('impactSuccess').textContent = data.posts.hall_of_fame_count.toLocaleString();
+        
+        // Count unique authors with hidden gems
+        const uniqueAuthors = data.top_authors ? data.top_authors.length : 0;
+        document.getElementById('impactAuthors').textContent = uniqueAuthors.toLocaleString();
+        
+    } catch (error) {
+        console.error('Error loading impact stats:', error);
+        // Keep showing '-' on error
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Live Hidden Gems Feed - HN Hidden Gems{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="text-center">
+                <h1 class="display-4 mb-3">
+                    <i class="fas fa-gem text-primary me-3"></i>
+                    Live Hidden Gems Feed
+                </h1>
+                <p class="lead text-muted">
+                    Discovering quality Hacker News posts from low-karma accounts before they hit the front page
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label for="karmaThreshold" class="form-label">Max Author Karma</label>
+                            <input type="number" class="form-control" id="karmaThreshold" value="50" min="1" max="500">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="minScore" class="form-label">Min Quality Score</label>
+                            <input type="number" class="form-control" id="minScore" value="0.5" min="0" max="1" step="0.1">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="timeRange" class="form-label">Time Range</label>
+                            <select class="form-select" id="timeRange">
+                                <option value="6">Last 6 hours</option>
+                                <option value="12">Last 12 hours</option>
+                                <option value="24" selected>Last 24 hours</option>
+                                <option value="48">Last 48 hours</option>
+                                <option value="168">Last week</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" onclick="loadGems()">
+                                <i class="fas fa-search me-2"></i>Update Feed
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status/Loading -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div id="statusAlert" class="alert alert-info d-none">
+                <i class="fas fa-spinner fa-spin me-2"></i>Loading hidden gems...
+            </div>
+        </div>
+    </div>
+
+    <!-- Gems Feed -->
+    <div class="row">
+        <div class="col-12">
+            <div id="gemsContainer">
+                <!-- Gems will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="text-center py-5 d-none">
+        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+        <h3 class="text-muted">No hidden gems found</h3>
+        <p class="text-muted">Try adjusting the filters or check back later for new discoveries.</p>
+    </div>
+</div>
+
+<!-- Gem Card Template -->
+<template id="gemCardTemplate">
+    <div class="card mb-4 gem-card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="flex-grow-1">
+                    <h5 class="card-title mb-2">
+                        <a href="#" class="gem-title text-decoration-none" target="_blank"></a>
+                    </h5>
+                    <div class="gem-meta text-muted small mb-2">
+                        <span class="me-3">
+                            <i class="fas fa-user me-1"></i>
+                            <a href="#" class="gem-author text-decoration-none"></a>
+                        </span>
+                        <span class="me-3">
+                            <i class="fas fa-fire me-1"></i>
+                            <span class="gem-karma"></span> karma
+                        </span>
+                        <span class="me-3">
+                            <i class="fas fa-clock me-1"></i>
+                            <span class="gem-age"></span>
+                        </span>
+                        <span>
+                            <i class="fas fa-comments me-1"></i>
+                            <span class="gem-comments"></span> comments
+                        </span>
+                    </div>
+                </div>
+                <div class="quality-score">
+                    <span class="badge bg-primary fs-6"></span>
+                </div>
+            </div>
+            
+            <div class="gem-text text-muted mb-3 d-none"></div>
+            
+            <div class="quality-breakdown mb-3">
+                <div class="row g-2">
+                    <div class="col-6 col-md-3">
+                        <div class="quality-metric">
+                            <small class="text-muted">Technical</small>
+                            <div class="progress progress-sm">
+                                <div class="progress-bar bg-info technical-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="quality-metric">
+                            <small class="text-muted">Original</small>
+                            <div class="progress progress-sm">
+                                <div class="progress-bar bg-success originality-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="quality-metric">
+                            <small class="text-muted">Problem Solving</small>
+                            <div class="progress progress-sm">
+                                <div class="progress-bar bg-warning problem-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="quality-metric">
+                            <small class="text-muted">Spam Risk</small>
+                            <div class="progress progress-sm">
+                                <div class="progress-bar bg-danger spam-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="gem-links">
+                    <a href="#" class="btn btn-outline-primary btn-sm hn-link" target="_blank">
+                        <i class="fas fa-external-link-alt me-1"></i>View on HN
+                    </a>
+                    <a href="#" class="btn btn-outline-secondary btn-sm original-link d-none" target="_blank">
+                        <i class="fas fa-link me-1"></i>Original Link
+                    </a>
+                </div>
+                <div class="gem-actions">
+                    <button class="btn btn-outline-success btn-sm" onclick="shareGem(this)" title="Share this gem">
+                        <i class="fas fa-share"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh every 5 minutes
+setInterval(loadGems, 5 * 60 * 1000);
+
+// Load gems on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadGems();
+});
+
+async function loadGems() {
+    const statusAlert = document.getElementById('statusAlert');
+    const gemsContainer = document.getElementById('gemsContainer');
+    const emptyState = document.getElementById('emptyState');
+    
+    // Show loading
+    statusAlert.classList.remove('d-none');
+    emptyState.classList.add('d-none');
+    
+    try {
+        const params = new URLSearchParams({
+            karma_threshold: document.getElementById('karmaThreshold').value,
+            min_score: document.getElementById('minScore').value,
+            hours: document.getElementById('timeRange').value,
+            limit: 50
+        });
+        
+        const response = await fetch(`/api/gems?${params}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Hide loading
+        statusAlert.classList.add('d-none');
+        
+        if (data.gems.length === 0) {
+            gemsContainer.innerHTML = '';
+            emptyState.classList.remove('d-none');
+            return;
+        }
+        
+        // Render gems
+        renderGems(data.gems);
+        
+    } catch (error) {
+        console.error('Error loading gems:', error);
+        statusAlert.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>Error loading gems: ${error.message}`;
+        statusAlert.className = 'alert alert-danger';
+    }
+}
+
+function renderGems(gems) {
+    const container = document.getElementById('gemsContainer');
+    const template = document.getElementById('gemCardTemplate');
+    
+    container.innerHTML = '';
+    
+    gems.forEach(gem => {
+        const card = template.content.cloneNode(true);
+        
+        // Basic info
+        card.querySelector('.gem-title').textContent = gem.title;
+        card.querySelector('.gem-title').href = gem.url || gem.hn_url;
+        card.querySelector('.gem-author').textContent = gem.author;
+        card.querySelector('.gem-author').href = `/api/users/${gem.author}`;
+        card.querySelector('.gem-karma').textContent = gem.author_karma;
+        card.querySelector('.gem-age').textContent = formatAge(gem.hn_created_at);
+        card.querySelector('.gem-comments').textContent = gem.descendants || 0;
+        
+        // Quality score
+        const score = gem.quality_score?.overall_interest || 0;
+        const scoreElement = card.querySelector('.quality-score .badge');
+        scoreElement.textContent = (score * 100).toFixed(0) + '%';
+        
+        if (score >= 0.8) scoreElement.className = 'badge bg-success fs-6';
+        else if (score >= 0.6) scoreElement.className = 'badge bg-warning fs-6';
+        else scoreElement.className = 'badge bg-primary fs-6';
+        
+        // Text content
+        if (gem.text) {
+            const textElement = card.querySelector('.gem-text');
+            textElement.textContent = gem.text.substring(0, 200) + (gem.text.length > 200 ? '...' : '');
+            textElement.classList.remove('d-none');
+        }
+        
+        // Quality breakdown
+        if (gem.quality_score) {
+            const qs = gem.quality_score;
+            card.querySelector('.technical-bar').style.width = (qs.technical_depth * 100) + '%';
+            card.querySelector('.originality-bar').style.width = (qs.originality * 100) + '%';
+            card.querySelector('.problem-bar').style.width = (qs.problem_solving * 100) + '%';
+            card.querySelector('.spam-bar').style.width = (qs.spam_likelihood * 100) + '%';
+        }
+        
+        // Links
+        card.querySelector('.hn-link').href = gem.hn_url;
+        if (gem.url) {
+            const originalLink = card.querySelector('.original-link');
+            originalLink.href = gem.url;
+            originalLink.classList.remove('d-none');
+        }
+        
+        container.appendChild(card);
+    });
+}
+
+function formatAge(dateString) {
+    if (!dateString) return 'unknown';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffHours >= 24) {
+        const days = Math.floor(diffHours / 24);
+        return `${days}d ago`;
+    } else if (diffHours >= 1) {
+        return `${diffHours}h ago`;
+    } else {
+        return `${diffMinutes}m ago`;
+    }
+}
+
+function shareGem(button) {
+    const card = button.closest('.gem-card');
+    const title = card.querySelector('.gem-title').textContent;
+    const url = card.querySelector('.hn-link').href;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: `Hidden Gem: ${title}`,
+            url: url
+        });
+    } else {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(url).then(() => {
+            button.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => {
+                button.innerHTML = '<i class="fas fa-share"></i>';
+            }, 2000);
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1 @@
+"""Flask web interface for HN Hidden Gems."""
