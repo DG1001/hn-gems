@@ -176,6 +176,7 @@ def create_app(config_name=None):
                     # Create or update quality score
                     if not post.quality_score:
                         post.quality_score = QualityScore(post=post)
+                        db.session.add(post.quality_score)
                     
                     post.quality_score.update_scores(quality_scores)
                     
