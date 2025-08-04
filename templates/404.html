@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found - HN Hidden Gems{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <div class="py-5">
+                <i class="fas fa-search fa-5x text-muted mb-4"></i>
+                <h1 class="display-4 mb-3">404</h1>
+                <h2 class="mb-3">Page Not Found</h2>
+                <p class="lead text-muted mb-4">
+                    The page you're looking for seems to have vanished like an overlooked hidden gem.
+                </p>
+                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i>Back to Hidden Gems
+                    </a>
+                    <a href="{{ url_for('main.hall_of_fame') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-trophy me-2"></i>Hall of Fame
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

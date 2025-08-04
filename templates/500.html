@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Server Error - HN Hidden Gems{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <div class="py-5">
+                <i class="fas fa-exclamation-triangle fa-5x text-warning mb-4"></i>
+                <h1 class="display-4 mb-3">500</h1>
+                <h2 class="mb-3">Server Error</h2>
+                <p class="lead text-muted mb-4">
+                    Something went wrong on our end. We're working to fix it!
+                </p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    This error has been logged and our team has been notified.
+                </div>
+                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i>Try Again
+                    </a>
+                    <a href="{{ url_for('main.about') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-envelope me-2"></i>Contact Us
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
