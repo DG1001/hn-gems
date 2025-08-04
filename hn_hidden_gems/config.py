@@ -6,7 +6,7 @@ load_dotenv()
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
-    DATABASE_URL = os.environ.get('DATABASE_URL') or 'sqlite:///hn_hidden_gems.db'
+    DATABASE_URL = os.environ.get('DATABASE_URL') or f'sqlite:///{os.path.abspath("hn_hidden_gems.db")}'
     
     # API Keys
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
@@ -28,8 +28,8 @@ class Config:
     SLACK_WEBHOOK_URL = os.environ.get('SLACK_WEBHOOK_URL')
     
     # Application Settings
-    KARMA_THRESHOLD = int(os.environ.get('KARMA_THRESHOLD', 50))
-    MIN_INTEREST_SCORE = float(os.environ.get('MIN_INTEREST_SCORE', 0.5))
+    KARMA_THRESHOLD = int(os.environ.get('KARMA_THRESHOLD', 100))
+    MIN_INTEREST_SCORE = float(os.environ.get('MIN_INTEREST_SCORE', 0.3))
     POLL_INTERVAL_SECONDS = int(os.environ.get('POLL_INTERVAL_SECONDS', 60))
     MAX_POSTS_PER_POLL = int(os.environ.get('MAX_POSTS_PER_POLL', 100))
     

@@ -141,8 +141,8 @@ def create_app(config_name=None):
         analyzer = QualityAnalyzer()
         
         try:
-            # Get recent posts
-            posts = hn_api.get_posts_with_metadata('new', 10)
+            # Get recent posts (more for better sample)
+            posts = hn_api.get_posts_with_metadata('new', 50)
             logger.info(f"Retrieved {len(posts)} posts for analysis")
             
             for post_data in posts:
@@ -179,11 +179,11 @@ def create_app(config_name=None):
                     
                     post.quality_score.update_scores(quality_scores)
                     
-                    # Determine if it's a hidden gem
+                    # Determine if it's a hidden gem (more realistic thresholds)
                     is_gem = (
-                        post.author_karma < 50 and
-                        quality_scores['overall_interest'] >= 0.5 and
-                        quality_scores['spam_likelihood'] < 0.3
+                        post.author_karma < 100 and  # Increased karma threshold
+                        quality_scores['overall_interest'] >= 0.3 and  # Lowered interest threshold
+                        quality_scores['spam_likelihood'] < 0.4  # Slightly more lenient spam threshold
                     )
                     post.is_hidden_gem = is_gem
                     post.is_spam = quality_scores['spam_likelihood'] >= 0.7
