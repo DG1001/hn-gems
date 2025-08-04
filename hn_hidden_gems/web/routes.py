@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from flask import Blueprint, render_template, jsonify, request, current_app
+from flask import Blueprint, render_template, jsonify, request, current_app, send_from_directory
 from hn_hidden_gems.models import Post, QualityScore, HallOfFame, User
 from hn_hidden_gems.utils.logger import setup_logger
 
@@ -27,6 +27,20 @@ def stats():
 def about():
     """About page with project information."""
     return render_template('about.html')
+
+@main.route('/sw.js')
+def service_worker():
+    """Serve service worker file."""
+    return send_from_directory('static', 'sw.js')
+
+@main.route('/favicon.ico')
+def favicon():
+    """Serve favicon or return 204 if not found."""
+    try:
+        return send_from_directory('static/images', 'favicon.ico')
+    except:
+        # Return empty response if favicon doesn't exist
+        return '', 204
 
 # API Routes
 
