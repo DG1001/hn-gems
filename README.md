@@ -89,6 +89,12 @@ flake8
 - `GET /api/stats`: Success metrics
 - `GET /feed.xml`: RSS feed
 
+## Development Tools
+
+This project was developed using:
+- **[XaresAICoder](https://github.com/DG1001/XaresAICoder)** - Open-source browser IDE with integrated AI coding assistants
+- **[Claude Code](https://claude.ai/code)** - AI-powered development assistant for code analysis and implementation
+
 ## License
 
 MIT License - see LICENSE file for details.

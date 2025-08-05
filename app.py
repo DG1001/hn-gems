@@ -206,6 +206,238 @@ def create_app(config_name=None):
             logger.error(f"Sample analysis failed: {e}")
             db.session.rollback()
     
+    @app.cli.command()
+    @app.cli.command('fetch-target')
+    def fetch_target_post():
+        """Fetch specific target post and surrounding area."""
+        from hn_hidden_gems.api.hn_api import HackerNewsAPI
+        from hn_hidden_gems.analyzer.quality_analyzer import QualityAnalyzer
+        from hn_hidden_gems.models import Post, User, QualityScore
+        
+        hn_api = HackerNewsAPI()
+        analyzer = QualityAnalyzer()
+        
+        target_id = 44782782  # User's post
+        range_size = 500  # Check 500 posts around the target
+        
+        try:
+            posts_processed = 0
+            gems_found = 0
+            
+            # Process posts around the target ID
+            start_id = target_id + range_size // 2
+            end_id = target_id - range_size // 2
+            
+            logger.info(f"Fetching posts from {end_id} to {start_id} (targeting {target_id})")
+            
+            for hn_id in range(start_id, end_id, -1):
+                try:
+                    # Check if we already have this post
+                    if Post.find_by_hn_id(hn_id):
+                        continue
+                    
+                    # Fetch post from HN API
+                    post_data = hn_api.get_item(hn_id)
+                    if not post_data or post_data.get('type') != 'story':
+                        continue
+                    
+                    if not post_data.get('title'):
+                        continue
+                    
+                    # Get author karma
+                    author_data = hn_api.get_user(post_data['by']) if post_data.get('by') else {}
+                    author_karma = author_data.get('karma', 0) if author_data else 0
+                    
+                    # Create user
+                    user = User.find_or_create(post_data['by'], {
+                        'karma': author_karma,
+                        'created': author_data.get('created', 0)
+                    })
+                    
+                    # Create post
+                    post = Post(
+                        hn_id=hn_id,
+                        title=post_data.get('title', ''),
+                        url=post_data.get('url'),
+                        text=post_data.get('text'),
+                        author=post_data['by'],
+                        author_karma=author_karma,
+                        account_age_days=0,
+                        score=post_data.get('score', 0),
+                        descendants=post_data.get('descendants', 0),
+                        hn_created_at=datetime.fromtimestamp(post_data.get('time', 0))
+                    )
+                    db.session.add(post)
+                    
+                    # Analyze quality
+                    quality_scores = analyzer.analyze_post_quality({
+                        **post_data,
+                        'author_karma': author_karma
+                    })
+                    
+                    # Create quality score
+                    quality_score = QualityScore(post=post)
+                    quality_score.update_scores(quality_scores)
+                    db.session.add(quality_score)
+                    
+                    # Determine if it's a hidden gem
+                    is_gem = (
+                        author_karma < 100 and
+                        quality_scores['overall_interest'] >= 0.3 and
+                        quality_scores['spam_likelihood'] < 0.4
+                    )
+                    post.is_hidden_gem = is_gem
+                    post.is_spam = quality_scores['spam_likelihood'] >= 0.7
+                    
+                    if is_gem:
+                        gems_found += 1
+                        logger.info(f"Found gem {hn_id}: {post_data.get('title', '')[:50]}... (score: {quality_scores['overall_interest']:.2f})")
+                    
+                    if hn_id == target_id:
+                        logger.info(f"🎯 FOUND TARGET POST {target_id}: {post_data.get('title', '')}")
+                        logger.info(f"   Author: {post_data['by']} (karma: {author_karma})")
+                        logger.info(f"   Quality score: {quality_scores['overall_interest']:.2f}")
+                        logger.info(f"   Is gem: {is_gem}")
+                    
+                    posts_processed += 1
+                    
+                    # Commit every 25 posts
+                    if posts_processed % 25 == 0:
+                        db.session.commit()
+                        logger.info(f"Processed {posts_processed} posts, found {gems_found} gems")
+                    
+                except Exception as e:
+                    logger.error(f"Error processing post {hn_id}: {e}")
+                    continue
+            
+            db.session.commit()
+            logger.info(f"Target fetch completed: {posts_processed} posts processed, {gems_found} gems found")
+            
+        except Exception as e:
+            logger.error(f"Target fetch failed: {e}")
+            db.session.rollback()
+    
+    @app.cli.command()
+    def fetch_historical():
+        """Fetch historical posts from the last 2 days using HN item IDs."""
+        from hn_hidden_gems.api.hn_api import HackerNewsAPI
+        from hn_hidden_gems.analyzer.quality_analyzer import QualityAnalyzer
+        from hn_hidden_gems.models import Post, User, QualityScore
+        
+        hn_api = HackerNewsAPI()
+        analyzer = QualityAnalyzer()
+        
+        try:
+            # Get current database range to know where to start
+            existing_min = Post.query.with_entities(Post.hn_id).order_by(Post.hn_id.asc()).first()
+            if existing_min:
+                start_id = existing_min[0] - 1
+                logger.info(f"Starting backward from HN ID {start_id}")
+            else:
+                # If no posts exist, start from a recent ID
+                start_id = 44795000
+                logger.info(f"No existing posts, starting from {start_id}")
+            
+            # Fetch posts going backwards to cover last 2 days
+            # Approximately 2000-4000 posts per day on HN
+            target_posts = 6000  # Should cover ~2 days
+            batch_size = 100
+            
+            posts_processed = 0
+            gems_found = 0
+            
+            # Go backwards through HN item IDs
+            for batch_start in range(start_id, start_id - target_posts, -batch_size):
+                batch_end = max(batch_start - batch_size, start_id - target_posts)
+                logger.info(f"Processing batch: {batch_end} to {batch_start}")
+                
+                # Fetch posts in this ID range
+                for hn_id in range(batch_start, batch_end, -1):
+                    try:
+                        # Check if we already have this post
+                        if Post.find_by_hn_id(hn_id):
+                            continue
+                        
+                        # Fetch post from HN API
+                        post_data = hn_api.get_item(hn_id)
+                        if not post_data or post_data.get('type') != 'story':
+                            continue
+                        
+                        if not post_data.get('title'):
+                            continue
+                        
+                        # Get author karma
+                        author_data = hn_api.get_user(post_data['by']) if post_data.get('by') else {}
+                        author_karma = author_data.get('karma', 0) if author_data else 0
+                        
+                        # Create user
+                        user = User.find_or_create(post_data['by'], {
+                            'karma': author_karma,
+                            'created': author_data.get('created', 0)
+                        })
+                        
+                        # Create post
+                        post = Post(
+                            hn_id=hn_id,
+                            title=post_data.get('title', ''),
+                            url=post_data.get('url'),
+                            text=post_data.get('text'),
+                            author=post_data['by'],
+                            author_karma=author_karma,
+                            account_age_days=0,  # We'll calculate this if needed
+                            score=post_data.get('score', 0),
+                            descendants=post_data.get('descendants', 0),
+                            hn_created_at=datetime.fromtimestamp(post_data.get('time', 0))
+                        )
+                        db.session.add(post)
+                        
+                        # Analyze quality
+                        quality_scores = analyzer.analyze_post_quality({
+                            **post_data,
+                            'author_karma': author_karma
+                        })
+                        
+                        # Create quality score
+                        quality_score = QualityScore(post=post)
+                        quality_score.update_scores(quality_scores)
+                        db.session.add(quality_score)
+                        
+                        # Determine if it's a hidden gem
+                        is_gem = (
+                            author_karma < 100 and
+                            quality_scores['overall_interest'] >= 0.3 and
+                            quality_scores['spam_likelihood'] < 0.4
+                        )
+                        post.is_hidden_gem = is_gem
+                        post.is_spam = quality_scores['spam_likelihood'] >= 0.7
+                        
+                        if is_gem:
+                            gems_found += 1
+                            logger.info(f"Found gem {hn_id}: {post_data.get('title', '')[:50]}... (score: {quality_scores['overall_interest']:.2f})")
+                        
+                        posts_processed += 1
+                        
+                        # Commit every 50 posts to avoid memory issues
+                        if posts_processed % 50 == 0:
+                            db.session.commit()
+                            logger.info(f"Processed {posts_processed} posts, found {gems_found} gems")
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing post {hn_id}: {e}")
+                        continue
+                
+                # Check if we found the target post
+                if hn_id == 44782782:
+                    logger.info("Found target post 44782782!")
+                    break
+            
+            db.session.commit()
+            logger.info(f"Historical fetch completed: {posts_processed} posts processed, {gems_found} gems found")
+            
+        except Exception as e:
+            logger.error(f"Historical fetch failed: {e}")
+            db.session.rollback()
+    
     logger.info(f"Flask app created with config: {config_name}")
     return app
 

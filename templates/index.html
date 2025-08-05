@@ -182,6 +182,20 @@ document.addEventListener('DOMContentLoaded', function() {
     loadGems();
 });
 
+// Reload gems when page becomes visible (fixes navigation caching)
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        loadGems();
+    }
+});
+
+// Force reload when navigating back to this page
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        loadGems();
+    }
+});
+
 async function loadGems() {
     const statusAlert = document.getElementById('statusAlert');
     const gemsContainer = document.getElementById('gemsContainer');
@@ -196,10 +210,16 @@ async function loadGems() {
             karma_threshold: document.getElementById('karmaThreshold').value,
             min_score: document.getElementById('minScore').value,
             hours: document.getElementById('timeRange').value,
-            limit: 50
+            limit: 50,
+            _t: Date.now() // Cache busting parameter
         });
         
-        const response = await fetch(`/api/gems?${params}`);
+        const response = await fetch(`/api/gems?${params}`, {
+            cache: 'no-cache',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
         const data = await response.json();
         
         if (data.error) {
