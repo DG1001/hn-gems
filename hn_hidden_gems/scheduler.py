@@ -223,6 +223,12 @@ class PostCollectionScheduler:
                         posts_processed += 1
                         continue
                     
+                    # Double-check for existing post to avoid race conditions
+                    existing_post = Post.find_by_hn_id(story_id)
+                    if existing_post:
+                        posts_processed += 1
+                        continue
+                    
                     # Get author information
                     author_data = hn_api.get_user(post_data['by']) if post_data.get('by') else {}
                     author_karma = author_data.get('karma', 0) if author_data else 0
@@ -253,7 +259,6 @@ class PostCollectionScheduler:
                         descendants=post_data.get('descendants', 0),
                         hn_created_at=post_time
                     )
-                    db.session.add(post)
                     
                     # Analyze quality
                     quality_scores = analyzer.analyze_post_quality({
@@ -265,7 +270,6 @@ class PostCollectionScheduler:
                     # Create quality score
                     quality_score = QualityScore(post=post)
                     quality_score.update_scores(quality_scores)
-                    db.session.add(quality_score)
                     
                     # Determine if it's a hidden gem
                     karma_threshold = int(os.environ.get('KARMA_THRESHOLD', 100))
@@ -279,26 +283,54 @@ class PostCollectionScheduler:
                     post.is_hidden_gem = is_gem
                     post.is_spam = quality_scores['spam_likelihood'] >= 0.7
                     
-                    if is_gem:
-                        gems_found += 1
-                        logger.info(f"Found gem {story_id}: {post_data.get('title', '')[:50]}... (score: {quality_scores['overall_interest']:.2f})")
+                    # Add to session
+                    db.session.add(post)
+                    db.session.add(quality_score)
                     
-                    posts_created += 1
-                    posts_processed += 1
-                    
-                    # Commit every batch_size posts to avoid memory issues
-                    if posts_created % batch_size == 0:
+                    # Try to commit this individual post
+                    try:
                         db.session.commit()
-                        logger.info(f"Committed batch: {posts_created} posts created, {gems_found} gems found")
+                        posts_created += 1
+                        
+                        if is_gem:
+                            gems_found += 1
+                            logger.info(f"Found gem {story_id}: {post_data.get('title', '')[:50]}... (score: {quality_scores['overall_interest']:.2f})")
+                        
+                        # Log progress every batch_size posts
+                        if posts_created % batch_size == 0:
+                            logger.info(f"Progress: {posts_created} posts created, {gems_found} gems found")
+                            
+                    except Exception as commit_error:
+                        # Handle unique constraint violations gracefully
+                        db.session.rollback()
+                        if "UNIQUE constraint failed: posts.hn_id" in str(commit_error):
+                            # This is expected when posts are processed multiple times
+                            logger.debug(f"Post {story_id} already exists, skipping duplicate")
+                            posts_processed += 1
+                        else:
+                            logger.error(f"Failed to commit post {story_id}: {commit_error}")
+                            errors += 1
+                            posts_processed += 1
+                        continue
+                    
+                    posts_processed += 1
                 
                 except Exception as e:
                     logger.error(f"Error processing post {story_id}: {e}")
+                    # Rollback any pending transaction
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
                     errors += 1
                     posts_processed += 1
                     continue
             
-            # Final commit
-            db.session.commit()
+            # Ensure any remaining items are committed
+            try:
+                db.session.commit()
+            except:
+                db.session.rollback()
             
             # Update statistics
             duration = (datetime.utcnow() - start_time).total_seconds()
@@ -316,8 +348,16 @@ class PostCollectionScheduler:
             
         except Exception as e:
             logger.error(f"Collection failed: {e}")
-            db.session.rollback()
-            self._collection_stats['status'] = 'error'
+            try:
+                db.session.rollback()
+            except:
+                pass
+            self._collection_stats.update({
+                'status': 'error',
+                'errors': errors + 1,
+                'last_run': start_time.isoformat(),
+                'last_duration': (datetime.utcnow() - start_time).total_seconds()
+            })
             
         finally:
             self._collection_lock.release()
