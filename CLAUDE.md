@@ -72,6 +72,49 @@ flask db upgrade
 flask db migrate -m "description"
 ```
 
+### Background Post Collection Service
+The application includes a configurable background service for automatically collecting new HN posts (no Redis required):
+
+```bash
+# Configure collection interval (default: 5 minutes, 0 to disable)
+export POST_COLLECTION_INTERVAL_MINUTES=5
+
+# Start the Flask app (collection service auto-starts)
+python app.py
+
+# Check service status
+python scripts/manage_collector_simple.py status
+
+# Manually trigger collection
+python scripts/manage_collector_simple.py collect --minutes 60
+
+# Alternative Flask CLI commands
+flask config-collection          # Show current configuration
+flask start-collector           # Start service manually
+flask stop-collector            # Stop service manually
+flask collect-now               # Manually trigger collection
+flask collection-status         # Check service status
+```
+
+#### Configuration Options
+```bash
+# Collection settings
+POST_COLLECTION_INTERVAL_MINUTES=5    # Minutes between collections (0 to disable)
+POST_COLLECTION_BATCH_SIZE=25         # Posts to commit per batch
+POST_COLLECTION_MAX_STORIES=500       # Max story IDs to fetch per run
+
+# Quality thresholds
+KARMA_THRESHOLD=100                   # Max author karma for gems
+MIN_INTEREST_SCORE=0.3               # Min quality score for gems
+```
+
+#### Service Architecture
+- **APScheduler**: In-process background task scheduler
+- **Flask Integration**: Runs within the Flask application process
+- **No External Dependencies**: No Redis or Celery required
+- **Time-based Collection**: Only collects posts from the specified time window
+- **Auto-start/stop**: Automatically starts with Flask app, stops when app stops
+
 ## Project Structure (To Be Created)
 
 The project will follow this structure:

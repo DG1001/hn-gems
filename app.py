@@ -19,6 +19,7 @@ from hn_hidden_gems.config import config
 from hn_hidden_gems.models import db, init_db
 from hn_hidden_gems.web.routes import main as main_bp, api
 from hn_hidden_gems.utils.logger import setup_logger
+from hn_hidden_gems.scheduler import scheduler
 
 logger = setup_logger(__name__)
 
@@ -38,6 +39,10 @@ def create_app(config_name=None):
     
     # Initialize database
     db.init_app(app)
+    
+    # Initialize scheduler
+    scheduler.init_app(app)
+    app.scheduler = scheduler
     
     # Register blueprints
     app.register_blueprint(main_bp)
@@ -474,6 +479,94 @@ def create_app(config_name=None):
             db.session.rollback()
     
     @app.cli.command()
+    def start_collector():
+        """Start the post collection background service."""
+        collection_interval = int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5))
+        
+        if collection_interval <= 0:
+            logger.info("Post collection is disabled (POST_COLLECTION_INTERVAL_MINUTES <= 0)")
+            return
+        
+        logger.info(f"Starting post collector with {collection_interval} minute intervals")
+        
+        if scheduler.start():
+            logger.info("✅ Post collection service started successfully")
+            logger.info("The service will run in the background while the Flask app is running")
+            logger.info("Use 'flask collection-status' to check status")
+        else:
+            logger.error("❌ Failed to start post collection service")
+    
+    @app.cli.command()
+    def stop_collector():
+        """Stop the post collection background service."""
+        if scheduler.stop():
+            logger.info("✅ Post collection service stopped")
+        else:
+            logger.info("❌ Service was not running")
+    
+    @app.cli.command()
+    def collect_now():
+        """Manually trigger post collection now."""
+        minutes_back = int(input("How many minutes back to collect? (default: 60): ") or 60)
+        
+        logger.info(f"Starting manual collection for last {minutes_back} minutes...")
+        
+        try:
+            scheduler.collect_now(minutes_back)
+            logger.info("✅ Collection started in background")
+            logger.info("Use 'flask collection-status' to check progress")
+        except Exception as e:
+            logger.error(f"❌ Failed to start collection: {e}")
+    
+    @app.cli.command()
+    def collection_status():
+        """Get status of the post collection service."""
+        try:
+            status = scheduler.get_status()
+            
+            logger.info("=== Post Collection Service Status ===")
+            logger.info(f"Enabled: {status['enabled']}")
+            logger.info(f"Running: {status['running']}")
+            logger.info(f"Interval: {status['interval_minutes']} minutes")
+            
+            if status['jobs']:
+                logger.info("Scheduled Jobs:")
+                for job in status['jobs']:
+                    logger.info(f"  - {job['name']}")
+                    logger.info(f"    Next run: {job['next_run'] or 'Not scheduled'}")
+            
+            stats = status['stats']
+            logger.info(f"\nStatistics:")
+            logger.info(f"  Status: {stats['status']}")
+            logger.info(f"  Total runs: {stats['total_runs']}")
+            logger.info(f"  Last run: {stats['last_run'] or 'Never'}")
+            logger.info(f"  Last duration: {stats['last_duration']:.1f}s" if stats['last_duration'] else "  Last duration: N/A")
+            logger.info(f"  Posts collected (last run): {stats['posts_collected']}")
+            logger.info(f"  Gems found (last run): {stats['gems_found']}")
+            logger.info(f"  Errors (last run): {stats['errors']}")
+                
+        except Exception as e:
+            logger.error(f"Failed to get collection status: {e}")
+    
+    @app.cli.command() 
+    def config_collection():
+        """Configure post collection settings."""
+        current_interval = int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5))
+        
+        logger.info("=== Post Collection Configuration ===")
+        logger.info(f"Current interval: {current_interval} minutes")
+        logger.info(f"Current status: {'Enabled' if current_interval > 0 else 'Disabled'}")
+        logger.info("")
+        logger.info("To change settings, set environment variables:")
+        logger.info("POST_COLLECTION_INTERVAL_MINUTES=5  # Minutes between collections (0 to disable)")
+        logger.info("POST_COLLECTION_BATCH_SIZE=25       # Posts to commit per batch")
+        logger.info("POST_COLLECTION_MAX_STORIES=500     # Max story IDs to fetch per run")
+        logger.info("")
+        logger.info("Example:")
+        logger.info("export POST_COLLECTION_INTERVAL_MINUTES=10")
+        logger.info("python app.py  # Restart the Flask app to apply changes")
+    
+    @app.cli.command()
     def fetch_historical():
         """Fetch historical posts from the last 2 days using HN item IDs."""
         from hn_hidden_gems.api.hn_api import HackerNewsAPI
@@ -593,6 +686,29 @@ def create_app(config_name=None):
         except Exception as e:
             logger.error(f"Historical fetch failed: {e}")
             db.session.rollback()
+    
+    # Auto-start scheduler if enabled
+    def start_background_scheduler():
+        """Start scheduler when Flask app starts."""
+        collection_interval = int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5))
+        if collection_interval > 0:
+            if scheduler.start():
+                logger.info(f"✅ Auto-started post collection service ({collection_interval} min intervals)")
+            else:
+                logger.warning("⚠️ Failed to auto-start post collection service")
+    
+    # Call startup function immediately
+    start_background_scheduler()
+    
+    # Shutdown scheduler when app closes
+    import atexit
+    def shutdown_scheduler():
+        """Stop scheduler when Flask app shuts down."""
+        if scheduler.is_running():
+            scheduler.stop()
+            logger.info("Post collection service stopped on app shutdown")
+    
+    atexit.register(shutdown_scheduler)
     
     logger.info(f"Flask app created with config: {config_name}")
     return app

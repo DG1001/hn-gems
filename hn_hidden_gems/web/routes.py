@@ -255,3 +255,65 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat(),
         'version': '0.1.0'
     })
+
+@api.route('/collection/status')
+def collection_status():
+    """Get post collection service status."""
+    try:
+        from hn_hidden_gems.scheduler import scheduler
+        status = scheduler.get_status()
+        return jsonify(status)
+        
+    except Exception as e:
+        logger.error(f"Error getting collection status: {e}")
+        return jsonify({
+            'enabled': False,
+            'running': False,
+            'service_status': 'error',
+            'error': str(e)
+        }), 500
+
+@api.route('/collection/trigger', methods=['POST'])
+def trigger_collection():
+    """Manually trigger post collection."""
+    try:
+        # Get minutes_back from request data
+        data = request.get_json() or {}
+        minutes_back = data.get('minutes_back', 60)
+        
+        if not isinstance(minutes_back, int) or minutes_back <= 0:
+            return jsonify({'error': 'minutes_back must be a positive integer'}), 400
+        
+        from hn_hidden_gems.scheduler import scheduler
+        scheduler.collect_now(minutes_back)
+        
+        return jsonify({
+            'status': 'triggered',
+            'minutes_back': minutes_back,
+            'message': f'Collection started for last {minutes_back} minutes'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error triggering collection: {e}")
+        return jsonify({'error': 'Failed to trigger collection'}), 500
+
+@api.route('/collection/config')
+def collection_config():
+    """Get current collection configuration."""
+    try:
+        import os
+        
+        config_data = {
+            'interval_minutes': int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5)),
+            'batch_size': int(os.environ.get('POST_COLLECTION_BATCH_SIZE', 25)),
+            'max_stories': int(os.environ.get('POST_COLLECTION_MAX_STORIES', 500)),
+            'karma_threshold': int(os.environ.get('KARMA_THRESHOLD', 100)),
+            'min_interest_score': float(os.environ.get('MIN_INTEREST_SCORE', 0.3)),
+            'enabled': int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5)) > 0
+        }
+        
+        return jsonify(config_data)
+        
+    except Exception as e:
+        logger.error(f"Error getting collection config: {e}")
+        return jsonify({'error': 'Failed to get collection config'}), 500

@@ -33,6 +33,12 @@ class Config:
     POLL_INTERVAL_SECONDS = int(os.environ.get('POLL_INTERVAL_SECONDS', 60))
     MAX_POSTS_PER_POLL = int(os.environ.get('MAX_POSTS_PER_POLL', 100))
     
+    # Background Collection Settings
+    POST_COLLECTION_INTERVAL_MINUTES = int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5))
+    POST_COLLECTION_ENABLED = POST_COLLECTION_INTERVAL_MINUTES > 0
+    POST_COLLECTION_BATCH_SIZE = int(os.environ.get('POST_COLLECTION_BATCH_SIZE', 25))
+    POST_COLLECTION_MAX_STORIES = int(os.environ.get('POST_COLLECTION_MAX_STORIES', 500))
+    
     # Logging
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
     LOG_FILE = os.environ.get('LOG_FILE', 'logs/app.log')
