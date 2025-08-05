@@ -1,5 +1,8 @@
 # HN Hidden Gems Finder
 
+[![GitHub](https://img.shields.io/badge/GitHub-DG1001%2Fhn--gems-blue?logo=github)](https://github.com/DG1001/hn-gems)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
 A tool that discovers high-quality Hacker News posts from low-karma accounts that would otherwise be overlooked.
 
 ## Overview

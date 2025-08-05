@@ -96,6 +96,23 @@ class HallOfFame(db.Model):
     
     def to_dict(self):
         """Convert hall of fame entry to dictionary for API responses."""
+        post_data = None
+        if self.post:
+            # Include only essential post data to avoid circular references
+            post_data = {
+                'id': self.post.id,
+                'hn_id': self.post.hn_id,
+                'title': self.post.title,
+                'author': self.post.author,
+                'author_karma': self.post.author_karma,
+                'url': self.post.url,
+                'text': self.post.text,
+                'score': self.post.score,
+                'descendants': self.post.descendants,
+                'hn_url': self.post.hn_url,
+                'hn_created_at': self.post.hn_created_at.isoformat() if self.post.hn_created_at else None
+            }
+        
         return {
             'id': self.id,
             'post_id': self.post_id,
@@ -117,7 +134,7 @@ class HallOfFame(db.Model):
             'notes': self.notes,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'post': self.post.to_dict() if self.post else None
+            'post': post_data
         }
     
     @classmethod

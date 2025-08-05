@@ -11,7 +11,7 @@ setup(
     description="Discover high-quality Hacker News posts from low-karma accounts",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/your-username/hn-hidden-gems",
+    url="https://github.com/DG1001/hn-gems",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",

@@ -102,7 +102,8 @@ def create_app(config_name=None):
     def inject_template_vars():
         return {
             'now': datetime.utcnow,
-            'app_version': '0.1.0'
+            'app_version': '0.1.0',
+            'github_url': 'https://github.com/DG1001/hn-gems'
         }
     
     # CLI commands
@@ -315,6 +316,161 @@ def create_app(config_name=None):
             
         except Exception as e:
             logger.error(f"Target fetch failed: {e}")
+            db.session.rollback()
+    
+    @app.cli.command()
+    def monitor_gems():
+        """Monitor discovered gems for success and update Hall of Fame."""
+        from hn_hidden_gems.api.hn_api import HackerNewsAPI
+        from hn_hidden_gems.models import Post, HallOfFame
+        
+        hn_api = HackerNewsAPI()
+        
+        try:
+            # Get all hidden gems that aren't spam
+            gems = Post.query.filter(
+                Post.is_hidden_gem == True,
+                Post.is_spam == False
+            ).all()
+            
+            logger.info(f"Monitoring {len(gems)} discovered gems for success...")
+            
+            new_successes = 0
+            updated_entries = 0
+            
+            for gem in gems:
+                try:
+                    # Get current HN score
+                    current_data = hn_api.get_item(gem.hn_id)
+                    if not current_data:
+                        continue
+                    
+                    current_score = current_data.get('score', 0)
+                    current_descendants = current_data.get('descendants', 0)
+                    
+                    # Update post with current metrics
+                    gem.score = current_score
+                    gem.descendants = current_descendants
+                    
+                    # Check if this gem already has a Hall of Fame entry
+                    hof_entry = HallOfFame.query.filter_by(post_id=gem.id).first()
+                    
+                    if hof_entry:
+                        # Update existing entry
+                        hof_entry.update_success_metrics(current_score)
+                        updated_entries += 1
+                        logger.info(f"Updated HoF entry for {gem.hn_id}: {current_score} points")
+                    
+                    elif current_score >= 100:  # New success threshold reached
+                        # Calculate discovery age
+                        if gem.hn_created_at and gem.created_at:
+                            discovery_age_hours = (gem.created_at - gem.hn_created_at).total_seconds() / 3600
+                        else:
+                            discovery_age_hours = None
+                        
+                        # Create new Hall of Fame entry
+                        hof_entry = HallOfFame.create_entry(
+                            post=gem,
+                            quality_score=gem.quality_score,
+                            hn_age_hours=discovery_age_hours
+                        )
+                        
+                        # Update with current success metrics
+                        hof_entry.update_success_metrics(current_score)
+                        
+                        new_successes += 1
+                        logger.info(f"🏆 NEW SUCCESS: {gem.title[:50]}... reached {current_score} points!")
+                        logger.info(f"   HN ID: {gem.hn_id}")
+                        logger.info(f"   Author: {gem.author} (karma: {gem.author_karma})")
+                        logger.info(f"   Discovery score: {gem.quality_score.overall_interest:.2f}")
+                
+                except Exception as e:
+                    logger.error(f"Error monitoring gem {gem.hn_id}: {e}")
+                    continue
+            
+            db.session.commit()
+            
+            logger.info(f"Gem monitoring completed:")
+            logger.info(f"  - New successes added to Hall of Fame: {new_successes}")
+            logger.info(f"  - Existing entries updated: {updated_entries}")
+            logger.info(f"  - Total gems monitored: {len(gems)}")
+            
+        except Exception as e:
+            logger.error(f"Gem monitoring failed: {e}")
+            db.session.rollback()
+    
+    @app.cli.command()
+    def create_sample_hof():
+        """Create sample Hall of Fame entries for testing."""
+        from hn_hidden_gems.models import Post, HallOfFame
+        from datetime import datetime, timedelta
+        
+        try:
+            # Get some of our best gems to promote to Hall of Fame
+            top_gems = Post.query.join(Post.quality_score).filter(
+                Post.is_hidden_gem == True,
+                Post.is_spam == False
+            ).order_by(Post.quality_score.has(overall_interest=0.6)).limit(3).all()
+            
+            if not top_gems:
+                logger.info("No gems found to create sample Hall of Fame entries")
+                return
+            
+            created_count = 0
+            
+            for i, gem in enumerate(top_gems):
+                # Check if already in Hall of Fame
+                existing = HallOfFame.query.filter_by(post_id=gem.id).first()
+                if existing:
+                    continue
+                
+                # Create fake success scenario
+                fake_discovery_score = max(10, gem.score or 10)  # Simulate low initial score
+                fake_success_score = fake_discovery_score + (120 + i * 50)  # Simulate growth
+                
+                # Create discovery time (simulate we found it early)
+                discovery_time = gem.hn_created_at + timedelta(hours=2 + i)
+                success_time = discovery_time + timedelta(hours=6 + i * 2)
+                
+                # Create Hall of Fame entry
+                hof_entry = HallOfFame(
+                    post_id=gem.id,
+                    discovered_at=discovery_time,
+                    discovery_score=gem.quality_score.overall_interest,
+                    discovery_hn_score=fake_discovery_score,
+                    discovery_karma=gem.author_karma,
+                    success_at=success_time,
+                    success_hn_score=fake_success_score,
+                    peak_hn_score=fake_success_score + 20,
+                    success_threshold=100,
+                    success_verified=True,
+                    lead_time_hours=(success_time - discovery_time).total_seconds() / 3600,
+                    hn_age_at_discovery_hours=2 + i
+                )
+                
+                # Set success type based on score
+                if fake_success_score >= 500:
+                    hof_entry.success_type = 'viral'
+                elif fake_success_score >= 200:
+                    hof_entry.success_type = 'front_page'
+                else:
+                    hof_entry.success_type = 'top_100'
+                
+                # Update gem's current score to match success
+                gem.score = fake_success_score
+                
+                db.session.add(hof_entry)
+                created_count += 1
+                
+                logger.info(f"Created sample HoF entry: {gem.title[:50]}...")
+                logger.info(f"  Discovery: {fake_discovery_score} → Success: {fake_success_score} points")
+                logger.info(f"  Lead time: {hof_entry.lead_time_hours:.1f} hours")
+            
+            db.session.commit()
+            logger.info(f"Created {created_count} sample Hall of Fame entries")
+            
+        except Exception as e:
+            logger.error(f"Failed to create sample Hall of Fame entries: {e}")
             db.session.rollback()
     
     @app.cli.command()

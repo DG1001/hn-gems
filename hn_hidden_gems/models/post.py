@@ -95,7 +95,13 @@ class Post(db.Model):
             'hn_url': self.hn_url,
             'age_hours': self.age_hours,
             'quality_score': self.quality_score.to_dict() if self.quality_score else None,
-            'hall_of_fame': self.hall_of_fame_entry.to_dict() if self.hall_of_fame_entry else None
+            'hall_of_fame': {
+                'id': self.hall_of_fame_entry.id,
+                'discovered_at': self.hall_of_fame_entry.discovered_at.isoformat() if self.hall_of_fame_entry.discovered_at else None,
+                'success_at': self.hall_of_fame_entry.success_at.isoformat() if self.hall_of_fame_entry.success_at else None,
+                'success_type': self.hall_of_fame_entry.success_type,
+                'discovery_quality': self.hall_of_fame_entry.discovery_quality
+            } if self.hall_of_fame_entry else None
         }
     
     @classmethod
