@@ -1,1 +1,1 @@
-"""API clients for Hacker News and Algolia."""
+"""API clients for Hacker News."""

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is the HN Hidden Gems Finder project - a tool that discovers high-quality Hacker News posts from low-karma accounts that would otherwise be overlooked. The project is a Flask web application that analyzes HN posts using the official Hacker News API and Algolia HN Search API.
+This is the HN Hidden Gems Finder project - a tool that discovers high-quality Hacker News posts from low-karma accounts that would otherwise be overlooked. The project is a Flask web application that analyzes HN posts using the official Hacker News Firebase API.
 
 ## Development Environment
 
@@ -32,7 +32,7 @@ venv\Scripts\activate  # Windows
 ### Core Components (Planned)
 Based on the project specification in `prompt.md`, the system will consist of:
 
-1. **HN Data Collection**: Uses dual API strategy with HN Firebase API (no rate limits) and Algolia HN Search API
+1. **HN Data Collection**: Uses HN Firebase API for real-time data collection (no rate limits)
 2. **Quality Analysis**: LLM-based content analysis to identify overlooked quality posts
 3. **Storage Layer**: SQLite for development, PostgreSQL for production
 4. **Web Interface**: Flask application with real-time hidden gems feed
@@ -122,7 +122,7 @@ The project will follow this structure:
 hn_hidden_gems/
 ├── __init__.py
 ├── models/          # Database models
-├── api/            # API clients (HN, Algolia)
+├── api/            # API clients (HN)
 ├── analyzer/       # Quality analysis logic
 ├── web/            # Flask routes and templates
 └── utils/          # Utility functions
@@ -140,7 +140,7 @@ config/             # Configuration files
 - No rate limits - can poll every 30-60 seconds
 - Endpoints: /newstories.json, /item/{id}.json, /user/{username}.json
 
-### Algolia HN Search API
+### Quality Analysis
 - Used for historical analysis and advanced filtering
 - Official and free to use
 

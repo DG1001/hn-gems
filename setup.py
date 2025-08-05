@@ -31,7 +31,6 @@ setup(
         "requests>=2.32.4",
         "SQLAlchemy>=2.0.0",
         "Flask-SQLAlchemy>=3.0.0",
-        "algoliasearch>=3.0.0",
         "openai>=1.0.0",
         "APScheduler>=3.10.0",
         "python-dateutil>=2.8.0",

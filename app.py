@@ -122,23 +122,22 @@ def create_app(config_name=None):
     def test_apis():
         """Test API connections."""
         from hn_hidden_gems.api.hn_api import HackerNewsAPI
-        from hn_hidden_gems.api.algolia_api import AlgoliaHNAPI
         
         # Test HN API
         hn_api = HackerNewsAPI()
         try:
             stories = hn_api.get_story_ids('new', 5)
-            logger.info(f"HN API test successful: retrieved {len(stories)} story IDs")
+            logger.info(f"✅ HN API test successful: retrieved {len(stories)} story IDs")
         except Exception as e:
-            logger.error(f"HN API test failed: {e}")
+            logger.error(f"❌ HN API test failed: {e}")
         
-        # Test Algolia API
-        algolia_api = AlgoliaHNAPI()
+        # Test quality analyzer
         try:
-            posts = algolia_api.get_low_karma_posts(50, 1)
-            logger.info(f"Algolia API test successful: retrieved {len(posts)} posts")
+            from hn_hidden_gems.analyzer.quality_analyzer import QualityAnalyzer
+            analyzer = QualityAnalyzer()
+            logger.info("✅ Quality analyzer initialized successfully")
         except Exception as e:
-            logger.error(f"Algolia API test failed: {e}")
+            logger.error(f"❌ Quality analyzer test failed: {e}")
     
     @app.cli.command()
     def analyze_sample():

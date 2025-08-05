@@ -52,9 +52,8 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
 
 ## Architecture
 
-The system uses a dual API strategy:
-- **HN Firebase API**: Real-time updates (no rate limits)
-- **Algolia HN Search API**: Historical analysis and advanced filtering
+The system uses the official Hacker News API for all data collection:
+- **HN Firebase API**: Real-time updates with no rate limits
 
 Key components:
 - **Data Collection**: Automatic background collection of HN new posts
@@ -72,8 +71,6 @@ Configure the application using environment variables:
 - `FLASK_ENV`: development/production
 - `DATABASE_URL`: Database connection string
 - `OPENAI_API_KEY`: OpenAI API key for content analysis
-- `ALGOLIA_APP_ID`: Algolia application ID
-- `ALGOLIA_API_KEY`: Algolia API key
 
 ### Background Collection Service
 - `POST_COLLECTION_INTERVAL_MINUTES=5`: Minutes between collections (0 to disable)

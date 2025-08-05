@@ -10,8 +10,6 @@ class Config:
     
     # API Keys
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-    ALGOLIA_APP_ID = os.environ.get('ALGOLIA_APP_ID')
-    ALGOLIA_API_KEY = os.environ.get('ALGOLIA_API_KEY')
     
     # Redis
     REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
@@ -45,9 +43,6 @@ class Config:
     
     # Hacker News API
     HN_API_BASE = "https://hacker-news.firebaseio.com/v0"
-    
-    # Algolia HN Search
-    ALGOLIA_INDEX_NAME = "Item_production"
 
 class DevelopmentConfig(Config):
     """Development configuration."""
