@@ -27,15 +27,15 @@
                     <div class="row g-3 align-items-end">
                         <div class="col-md-3">
                             <label for="karmaThreshold" class="form-label">Max Author Karma</label>
-                            <input type="number" class="form-control" id="karmaThreshold" value="100" min="1" max="500">
+                            <input type="number" class="form-control" id="karmaThreshold" value="100" min="1" max="500" autocomplete="off">
                         </div>
                         <div class="col-md-3">
                             <label for="minScore" class="form-label">Min Quality Score</label>
-                            <input type="number" class="form-control" id="minScore" value="0.3" min="0" max="1" step="0.1">
+                            <input type="number" class="form-control" id="minScore" value="0.3" min="0" max="1" step="0.1" autocomplete="off">
                         </div>
                         <div class="col-md-3">
                             <label for="timeRange" class="form-label">Time Range</label>
-                            <select class="form-select" id="timeRange">
+                            <select class="form-select" id="timeRange" autocomplete="off">
                                 <option value="6">Last 6 hours</option>
                                 <option value="12">Last 12 hours</option>
                                 <option value="24" selected>Last 24 hours</option>
@@ -179,12 +179,22 @@ setInterval(loadGems, 5 * 60 * 1000);
 
 // Load gems on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Force form defaults (prevents browser auto-fill from overriding)
+    document.getElementById('karmaThreshold').value = '100';
+    document.getElementById('minScore').value = '0.3';
+    document.getElementById('timeRange').value = '24';
+    
     loadGems();
 });
 
 // Reload gems when page becomes visible (fixes navigation caching)
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
+        // Reset form to correct defaults
+        document.getElementById('karmaThreshold').value = '100';
+        document.getElementById('minScore').value = '0.3';
+        document.getElementById('timeRange').value = '24';
+        
         loadGems();
     }
 });
@@ -192,6 +202,11 @@ document.addEventListener('visibilitychange', function() {
 // Force reload when navigating back to this page
 window.addEventListener('pageshow', function(event) {
     if (event.persisted) {
+        // Reset form to correct defaults
+        document.getElementById('karmaThreshold').value = '100';
+        document.getElementById('minScore').value = '0.3';
+        document.getElementById('timeRange').value = '24';
+        
         loadGems();
     }
 });

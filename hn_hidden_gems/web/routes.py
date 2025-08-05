@@ -48,20 +48,20 @@ def favicon():
 def get_gems():
     """Get current hidden gems."""
     try:
-        # Get parameters
+        # Get parameters (defaults match form values)
         limit = min(int(request.args.get('limit', 50)), 100)
-        karma_threshold = int(request.args.get('karma_threshold', 50))
-        min_score = float(request.args.get('min_score', 0.5))
+        karma_threshold = int(request.args.get('karma_threshold', 100))  # Match form default
+        min_score = float(request.args.get('min_score', 0.3))  # Match form default
         hours = int(request.args.get('hours', 24))
         
-        # Get recent hidden gems
+        # Get recent hidden gems (filter by HN post time, not DB insert time)
         cutoff_time = datetime.utcnow() - timedelta(hours=hours)
         
         gems = Post.query.join(QualityScore).filter(
             Post.is_hidden_gem == True,
             Post.is_spam == False,
             Post.author_karma < karma_threshold,
-            Post.created_at >= cutoff_time,
+            Post.hn_created_at >= cutoff_time,  # Use HN post time instead of DB time
             QualityScore.overall_interest >= min_score
         ).order_by(QualityScore.overall_interest.desc()).limit(limit).all()
         
