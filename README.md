@@ -15,6 +15,7 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
 - **Automated Background Services**: 
   - **Post Collection**: Automatic discovery and analysis with configurable intervals (no Redis required)
   - **Hall of Fame Monitoring**: Tracks gems that achieve success and automatically promotes them (every 6 hours)
+  - **Super Gems Analysis**: AI-powered deep analysis of top gems using Google Gemini (every 6 hours)
 - **Hall of Fame**: Automated tracking of discovered gems that later became popular (≥100 points)
 - **Success Metrics**: Real-time monitoring of discovery accuracy and timing
 - **Quality Analysis**: AI-powered content analysis to identify technical depth and originality
@@ -50,9 +51,10 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
    python app.py
    ```
    
-   The application automatically starts both background services:
+   The application automatically starts all background services:
    - **Post Collection**: Discovers new gems every 5 minutes
    - **Hall of Fame Monitoring**: Checks for gem success every 6 hours
+   - **Super Gems Analysis**: Deep AI analysis of top gems every 6 hours
 
 ## Architecture
 
@@ -83,10 +85,16 @@ Configure the application using environment variables:
 - `POST_COLLECTION_BATCH_SIZE=25`: Posts to commit per batch
 - `POST_COLLECTION_MAX_STORIES=500`: Max story IDs to fetch per run
 - `HALL_OF_FAME_INTERVAL_HOURS=6`: Hours between Hall of Fame monitoring (0 to disable)
+- `SUPER_GEMS_INTERVAL_HOURS=6`: Hours between super gems analysis (0 to disable)
+- `SUPER_GEMS_ANALYSIS_HOURS=48`: Hours back to analyze for super gems
+- `SUPER_GEMS_TOP_N=5`: Number of top gems to analyze per run
 
 ### Quality Thresholds
 - `KARMA_THRESHOLD=100`: Max author karma for gems
 - `MIN_INTEREST_SCORE=0.3`: Min quality score for gems
+
+### API Keys
+- `GEMINI_API_KEY`: Google Gemini API key for super gems analysis (required for super gems feature)
 
 ### Logging Settings
 - `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -122,26 +130,29 @@ flask start-collector           # Start both services manually
 flask stop-collector            # Stop both services manually
 flask collect-now               # Manually trigger post collection
 flask monitor-gems              # Manually trigger Hall of Fame monitoring
-flask collection-status         # Check status of both services
+flask analyze-super-gems        # Manually trigger super gems analysis
+flask collection-status         # Check status of all services
 ```
 
 ### Service Features
-- **Dual Background Services**: Post collection + Hall of Fame monitoring
+- **Triple Background Services**: Post collection + Hall of Fame monitoring + Super gems analysis
 - **No External Dependencies**: No Redis or Celery required
-- **Auto-start/stop**: Both services start with Flask app, stop when app stops
+- **Auto-start/stop**: All services start with Flask app, stop when app stops
 - **Configurable Intervals**: 
   - Post collection: Default 5 minutes (set to 0 to disable)
   - Hall of Fame monitoring: Default 6 hours (set to 0 to disable)
+  - Super gems analysis: Default 6 hours (set to 0 to disable)
 - **Time-based Collection**: Only processes posts from specified time windows
 - **Automated Success Tracking**: Promotes gems to Hall of Fame when they reach ≥100 points
 - **Thread-safe**: Prevents overlapping collection runs
-- **Progress Tracking**: Built-in statistics and status reporting for both services
+- **Progress Tracking**: Built-in statistics and status reporting for all services
 
 ## API Endpoints
 
 ### Core Endpoints
 - `GET /api/gems`: Latest hidden gems with filtering
 - `GET /api/gems/hall-of-fame`: Hall of fame entries
+- `GET /super-gems`: AI-curated super gems analysis page
 - `GET /api/stats`: Success metrics and statistics
 - `GET /api/posts/<hn_id>`: Get specific post by HN ID
 - `GET /api/users/<username>`: Get user information

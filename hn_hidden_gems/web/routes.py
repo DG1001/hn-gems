@@ -1,5 +1,6 @@
+import os
 from datetime import datetime, timedelta
-from flask import Blueprint, render_template, jsonify, request, current_app, send_from_directory
+from flask import Blueprint, render_template, jsonify, request, current_app, send_from_directory, send_file
 from hn_hidden_gems.models import Post, QualityScore, HallOfFame, User
 from hn_hidden_gems.utils.logger import setup_logger
 
@@ -27,6 +28,15 @@ def stats():
 def about():
     """About page with project information."""
     return render_template('about.html')
+
+@main.route('/super-gems')
+def super_gems():
+    """Serve super gems analysis page."""
+    super_gems_file = 'super-gems.html'
+    if os.path.exists(super_gems_file):
+        return send_file(super_gems_file)
+    else:
+        return render_template('super_gems_not_found.html'), 404
 
 @main.route('/sw.js')
 def service_worker():

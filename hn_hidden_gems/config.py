@@ -9,7 +9,7 @@ class Config:
     DATABASE_URL = os.environ.get('DATABASE_URL') or f'sqlite:///{os.path.join(os.path.dirname(os.path.dirname(__file__)), "instance", "hn_hidden_gems.db")}'
     
     # API Keys
-    OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+    GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
     
     # Redis
     REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
@@ -36,6 +36,12 @@ class Config:
     POST_COLLECTION_ENABLED = POST_COLLECTION_INTERVAL_MINUTES > 0
     POST_COLLECTION_BATCH_SIZE = int(os.environ.get('POST_COLLECTION_BATCH_SIZE', 25))
     POST_COLLECTION_MAX_STORIES = int(os.environ.get('POST_COLLECTION_MAX_STORIES', 500))
+    
+    # Super Gems Analysis Settings
+    SUPER_GEMS_INTERVAL_HOURS = int(os.environ.get('SUPER_GEMS_INTERVAL_HOURS', 6))
+    SUPER_GEMS_ENABLED = SUPER_GEMS_INTERVAL_HOURS > 0
+    SUPER_GEMS_ANALYSIS_HOURS = int(os.environ.get('SUPER_GEMS_ANALYSIS_HOURS', 48))
+    SUPER_GEMS_TOP_N = int(os.environ.get('SUPER_GEMS_TOP_N', 5))
     
     # Logging
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')

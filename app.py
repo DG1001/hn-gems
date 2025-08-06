@@ -703,6 +703,38 @@ def create_app(config_name=None):
             logger.error(f"Historical fetch failed: {e}")
             db.session.rollback()
     
+    @app.cli.command('analyze-super-gems')
+    def analyze_super_gems():
+        """Manually trigger super gems analysis."""
+        try:
+            import asyncio
+            from super_gem_analyzer import SuperGemsAnalyzer
+            
+            # Get config
+            gemini_api_key = app.config.get('GEMINI_API_KEY')
+            if not gemini_api_key:
+                logger.error("GEMINI_API_KEY not configured. Please set it in your environment.")
+                return
+            
+            analysis_hours = int(os.environ.get('SUPER_GEMS_ANALYSIS_HOURS', 48))
+            top_n = int(os.environ.get('SUPER_GEMS_TOP_N', 5))
+            
+            logger.info(f"Starting manual super gems analysis for last {analysis_hours} hours...")
+            
+            # Create analyzer
+            analyzer = SuperGemsAnalyzer(
+                gemini_api_key=gemini_api_key,
+                db_path=app.config.get('DATABASE_URL', '').replace('sqlite:///', '')
+            )
+            
+            # Run analysis
+            asyncio.run(analyzer.run_analysis(hours=analysis_hours, top_n=top_n))
+            
+            logger.info("Super gems analysis completed successfully!")
+            
+        except Exception as e:
+            logger.error(f"Super gems analysis failed: {e}")
+    
     # Auto-start scheduler if enabled
     def start_background_scheduler():
         """Start scheduler when Flask app starts."""

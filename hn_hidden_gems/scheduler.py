@@ -59,6 +59,7 @@ class PostCollectionScheduler:
         # Configure collection job based on settings
         self._configure_collection_job()
         self._configure_hall_of_fame_job()
+        self._configure_super_gems_job()
         
     def _configure_collection_job(self):
         """Configure the periodic collection job."""
@@ -112,6 +113,32 @@ class PostCollectionScheduler:
         else:
             logger.info("Hall of Fame monitoring disabled (interval = 0)")
     
+    def _configure_super_gems_job(self):
+        """Configure the periodic super gems analysis job."""
+        if not self.scheduler:
+            return
+            
+        super_gems_interval = int(os.environ.get('SUPER_GEMS_INTERVAL_HOURS', 6))
+        
+        # Remove existing job if any
+        try:
+            self.scheduler.remove_job('analyze_super_gems')
+        except:
+            pass
+        
+        if super_gems_interval > 0:
+            # Add super gems analysis job
+            self.scheduler.add_job(
+                func=self._analyze_super_gems_job,
+                trigger=IntervalTrigger(hours=super_gems_interval),
+                id='analyze_super_gems',
+                name=f'Analyze super gems every {super_gems_interval} hours',
+                replace_existing=True
+            )
+            logger.info(f"Scheduled super gems analysis every {super_gems_interval} hours")
+        else:
+            logger.info("Super gems analysis disabled (interval = 0)")
+    
     def start(self):
         """Start the scheduler."""
         if self.scheduler and not self.scheduler.running:
@@ -161,6 +188,8 @@ class PostCollectionScheduler:
             'interval_minutes': int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5)),
             'hof_enabled': int(os.environ.get('HALL_OF_FAME_INTERVAL_HOURS', 6)) > 0,
             'hof_interval_hours': int(os.environ.get('HALL_OF_FAME_INTERVAL_HOURS', 6)),
+            'super_gems_enabled': int(os.environ.get('SUPER_GEMS_INTERVAL_HOURS', 6)) > 0,
+            'super_gems_interval_hours': int(os.environ.get('SUPER_GEMS_INTERVAL_HOURS', 6)),
             'jobs': jobs,
             'stats': self._collection_stats.copy()
         }
@@ -192,6 +221,15 @@ class PostCollectionScheduler:
             
         with self.app.app_context():
             self._monitor_hall_of_fame()
+    
+    def _analyze_super_gems_job(self):
+        """Scheduled super gems analysis job."""
+        if not self.app:
+            logger.error("No Flask app available for super gems analysis")
+            return
+            
+        with self.app.app_context():
+            self._analyze_super_gems()
     
     def _collect_posts_manual(self, minutes_back):
         """Manual collection with Flask app context."""
@@ -495,6 +533,41 @@ class PostCollectionScheduler:
                 db.session.rollback()
             except:
                 pass
+    
+    def _analyze_super_gems(self):
+        """
+        Analyze top gems with LLM for super gem status.
+        Runs within Flask app context.
+        """
+        try:
+            import asyncio
+            from super_gem_analyzer import SuperGemsAnalyzer
+            from hn_hidden_gems.config import config
+            
+            # Get config from Flask config
+            gemini_api_key = self.app.config.get('GEMINI_API_KEY')
+            if not gemini_api_key:
+                logger.error("GEMINI_API_KEY not configured, skipping super gems analysis")
+                return
+            
+            analysis_hours = int(os.environ.get('SUPER_GEMS_ANALYSIS_HOURS', 48))
+            top_n = int(os.environ.get('SUPER_GEMS_TOP_N', 5))
+            
+            logger.info(f"Starting super gems analysis for last {analysis_hours} hours...")
+            
+            # Create analyzer
+            analyzer = SuperGemsAnalyzer(
+                gemini_api_key=gemini_api_key,
+                db_path=self.app.config.get('DATABASE_URL', '').replace('sqlite:///', '')
+            )
+            
+            # Run analysis in async context
+            asyncio.run(analyzer.run_analysis(hours=analysis_hours, top_n=top_n))
+            
+            logger.info("Super gems analysis completed")
+            
+        except Exception as e:
+            logger.error(f"Super gems analysis failed: {e}")
 
 # Global scheduler instance
 scheduler = PostCollectionScheduler()
