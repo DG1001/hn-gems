@@ -14,7 +14,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from hn_hidden_gems.utils.logger import setup_logger
 from hn_hidden_gems.api.hn_api import HackerNewsAPI
 from hn_hidden_gems.analyzer.quality_analyzer import QualityAnalyzer
-from hn_hidden_gems.models import Post, User, QualityScore, db
+from hn_hidden_gems.models import Post, User, QualityScore, HallOfFame, db
 
 logger = setup_logger(__name__)
 
@@ -58,6 +58,7 @@ class PostCollectionScheduler:
         
         # Configure collection job based on settings
         self._configure_collection_job()
+        self._configure_hall_of_fame_job()
         
     def _configure_collection_job(self):
         """Configure the periodic collection job."""
@@ -84,6 +85,32 @@ class PostCollectionScheduler:
             logger.info(f"Scheduled post collection every {collection_interval} minutes")
         else:
             logger.info("Post collection disabled (interval = 0)")
+    
+    def _configure_hall_of_fame_job(self):
+        """Configure the periodic Hall of Fame monitoring job."""
+        if not self.scheduler:
+            return
+            
+        hof_interval = int(os.environ.get('HALL_OF_FAME_INTERVAL_HOURS', 6))
+        
+        # Remove existing job if any
+        try:
+            self.scheduler.remove_job('monitor_hall_of_fame')
+        except:
+            pass
+        
+        if hof_interval > 0:
+            # Add Hall of Fame monitoring job
+            self.scheduler.add_job(
+                func=self._monitor_hall_of_fame_job,
+                trigger=IntervalTrigger(hours=hof_interval),
+                id='monitor_hall_of_fame',
+                name=f'Monitor Hall of Fame every {hof_interval} hours',
+                replace_existing=True
+            )
+            logger.info(f"Scheduled Hall of Fame monitoring every {hof_interval} hours")
+        else:
+            logger.info("Hall of Fame monitoring disabled (interval = 0)")
     
     def start(self):
         """Start the scheduler."""
@@ -132,6 +159,8 @@ class PostCollectionScheduler:
             'enabled': int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5)) > 0,
             'running': self.is_running(),
             'interval_minutes': int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5)),
+            'hof_enabled': int(os.environ.get('HALL_OF_FAME_INTERVAL_HOURS', 6)) > 0,
+            'hof_interval_hours': int(os.environ.get('HALL_OF_FAME_INTERVAL_HOURS', 6)),
             'jobs': jobs,
             'stats': self._collection_stats.copy()
         }
@@ -154,6 +183,15 @@ class PostCollectionScheduler:
         """Scheduled collection job."""
         collection_interval = int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5))
         self._collect_posts_manual(collection_interval)
+    
+    def _monitor_hall_of_fame_job(self):
+        """Scheduled Hall of Fame monitoring job."""
+        if not self.app:
+            logger.error("No Flask app available for Hall of Fame monitoring")
+            return
+            
+        with self.app.app_context():
+            self._monitor_hall_of_fame()
     
     def _collect_posts_manual(self, minutes_back):
         """Manual collection with Flask app context."""
@@ -361,6 +399,102 @@ class PostCollectionScheduler:
             
         finally:
             self._collection_lock.release()
+    
+    def _monitor_hall_of_fame(self):
+        """
+        Monitor discovered gems for success and update Hall of Fame.
+        Runs within Flask app context.
+        """
+        start_time = datetime.utcnow()
+        
+        try:
+            logger.info("Starting Hall of Fame monitoring...")
+            
+            # Initialize HN API
+            hn_api = HackerNewsAPI()
+            
+            # Get all hidden gems that aren't spam
+            gems = Post.query.filter(
+                Post.is_hidden_gem == True,
+                Post.is_spam == False
+            ).all()
+            
+            logger.info(f"Monitoring {len(gems)} discovered gems for success...")
+            
+            new_successes = 0
+            updated_entries = 0
+            errors = 0
+            
+            for gem in gems:
+                try:
+                    # Get current HN score
+                    current_data = hn_api.get_item(gem.hn_id)
+                    if not current_data:
+                        continue
+                    
+                    current_score = current_data.get('score', 0)
+                    current_descendants = current_data.get('descendants', 0)
+                    
+                    # Update post with current metrics
+                    gem.score = current_score
+                    gem.descendants = current_descendants
+                    
+                    # Check if this gem already has a Hall of Fame entry
+                    hof_entry = HallOfFame.query.filter_by(post_id=gem.id).first()
+                    
+                    if hof_entry:
+                        # Update existing entry
+                        hof_entry.update_success_metrics(current_score)
+                        updated_entries += 1
+                        logger.info(f"Updated HoF entry for {gem.hn_id}: {current_score} points")
+                    
+                    elif current_score >= 100:  # New success threshold reached
+                        # Calculate discovery age
+                        if gem.hn_created_at and gem.created_at:
+                            discovery_age_hours = (gem.created_at - gem.hn_created_at).total_seconds() / 3600
+                        else:
+                            discovery_age_hours = None
+                        
+                        # Create new Hall of Fame entry
+                        hof_entry = HallOfFame.create_entry(
+                            post=gem,
+                            quality_score=gem.quality_score,
+                            hn_age_hours=discovery_age_hours
+                        )
+                        
+                        # Update with current success metrics
+                        hof_entry.update_success_metrics(current_score)
+                        
+                        new_successes += 1
+                        logger.info(f"🏆 NEW SUCCESS: {gem.title[:50]}... reached {current_score} points!")
+                        logger.info(f"   HN ID: {gem.hn_id}")
+                        logger.info(f"   Author: {gem.author} (karma: {gem.author_karma})")
+                        logger.info(f"   Discovery score: {gem.quality_score.overall_interest:.2f}")
+            
+                except Exception as e:
+                    logger.error(f"Error monitoring gem {gem.hn_id}: {e}")
+                    errors += 1
+                    continue
+            
+            # Commit all changes
+            try:
+                db.session.commit()
+                logger.info(f"Hall of Fame monitoring completed:")
+                logger.info(f"  - New successes added: {new_successes}")
+                logger.info(f"  - Existing entries updated: {updated_entries}")
+                logger.info(f"  - Total gems monitored: {len(gems)}")
+                logger.info(f"  - Errors: {errors}")
+                logger.info(f"  - Duration: {(datetime.utcnow() - start_time).total_seconds():.1f}s")
+            except Exception as e:
+                logger.error(f"Failed to commit Hall of Fame updates: {e}")
+                db.session.rollback()
+                
+        except Exception as e:
+            logger.error(f"Hall of Fame monitoring failed: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
 
 # Global scheduler instance
 scheduler = PostCollectionScheduler()

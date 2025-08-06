@@ -486,22 +486,25 @@ def create_app(config_name=None):
             logger.info("Post collection is disabled (POST_COLLECTION_INTERVAL_MINUTES <= 0)")
             return
         
-        logger.info(f"Starting post collector with {collection_interval} minute intervals")
+        hof_interval = int(os.environ.get('HALL_OF_FAME_INTERVAL_HOURS', 6))
+        logger.info(f"Starting background services:")
+        logger.info(f"  - Post collection: {collection_interval} minute intervals")
+        logger.info(f"  - Hall of Fame monitoring: {hof_interval} hour intervals")
         
         if scheduler.start():
-            logger.info("✅ Post collection service started successfully")
-            logger.info("The service will run in the background while the Flask app is running")
+            logger.info("✅ Background services started successfully")
+            logger.info("Both post collection and Hall of Fame monitoring will run in the background")
             logger.info("Use 'flask collection-status' to check status")
         else:
-            logger.error("❌ Failed to start post collection service")
+            logger.error("❌ Failed to start background services")
     
     @app.cli.command()
     def stop_collector():
-        """Stop the post collection background service."""
+        """Stop the background services (post collection and Hall of Fame monitoring)."""
         if scheduler.stop():
-            logger.info("✅ Post collection service stopped")
+            logger.info("✅ Background services stopped")
         else:
-            logger.info("❌ Service was not running")
+            logger.info("❌ Services were not running")
     
     @app.cli.command()
     def collect_now():
@@ -526,13 +529,15 @@ def create_app(config_name=None):
             logger.info("=== Post Collection Service Status ===")
             logger.info(f"Enabled: {status['enabled']}")
             logger.info(f"Running: {status['running']}")
-            logger.info(f"Interval: {status['interval_minutes']} minutes")
+            logger.info(f"Post collection interval: {status['interval_minutes']} minutes")
+            logger.info(f"Hall of Fame monitoring enabled: {status['hof_enabled']}")
+            logger.info(f"Hall of Fame monitoring interval: {status['hof_interval_hours']} hours")
             
             if status['jobs']:
                 logger.info("Scheduled Jobs:")
                 for job in status['jobs']:
                     logger.info(f"  - {job['name']}")
-                    logger.info(f"    Next run: {job['next_run'] or 'Not scheduled'}")
+                    logger.info(f"    Next run: {job['next_run'] or 'Not scheduled']}")
             
             stats = status['stats']
             logger.info(f"\nStatistics:")
@@ -549,20 +554,32 @@ def create_app(config_name=None):
     
     @app.cli.command() 
     def config_collection():
-        """Configure post collection settings."""
+        """Configure post collection and Hall of Fame monitoring settings."""
         current_interval = int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5))
+        hof_interval = int(os.environ.get('HALL_OF_FAME_INTERVAL_HOURS', 6))
         
-        logger.info("=== Post Collection Configuration ===")
-        logger.info(f"Current interval: {current_interval} minutes")
-        logger.info(f"Current status: {'Enabled' if current_interval > 0 else 'Disabled'}")
+        logger.info("=== Background Services Configuration ===")
+        logger.info(f"Post collection interval: {current_interval} minutes")
+        logger.info(f"Post collection status: {'Enabled' if current_interval > 0 else 'Disabled'}")
+        logger.info(f"Hall of Fame monitoring interval: {hof_interval} hours")
+        logger.info(f"Hall of Fame monitoring status: {'Enabled' if hof_interval > 0 else 'Disabled'}")
         logger.info("")
         logger.info("To change settings, set environment variables:")
-        logger.info("POST_COLLECTION_INTERVAL_MINUTES=5  # Minutes between collections (0 to disable)")
-        logger.info("POST_COLLECTION_BATCH_SIZE=25       # Posts to commit per batch")
-        logger.info("POST_COLLECTION_MAX_STORIES=500     # Max story IDs to fetch per run")
+        logger.info("# Post Collection")
+        logger.info("POST_COLLECTION_INTERVAL_MINUTES=5    # Minutes between collections (0 to disable)")
+        logger.info("POST_COLLECTION_BATCH_SIZE=25         # Posts to commit per batch")
+        logger.info("POST_COLLECTION_MAX_STORIES=500       # Max story IDs to fetch per run")
+        logger.info("")
+        logger.info("# Hall of Fame Monitoring")
+        logger.info("HALL_OF_FAME_INTERVAL_HOURS=6         # Hours between HoF checks (0 to disable)")
+        logger.info("")
+        logger.info("# Quality Thresholds")
+        logger.info("KARMA_THRESHOLD=100                   # Max author karma for gems")
+        logger.info("MIN_INTEREST_SCORE=0.3               # Min quality score for gems")
         logger.info("")
         logger.info("Example:")
         logger.info("export POST_COLLECTION_INTERVAL_MINUTES=10")
+        logger.info("export HALL_OF_FAME_INTERVAL_HOURS=4")
         logger.info("python app.py  # Restart the Flask app to apply changes")
     
     @app.cli.command()
