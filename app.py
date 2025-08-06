@@ -708,6 +708,7 @@ def create_app(config_name=None):
         """Manually trigger super gems analysis."""
         try:
             import asyncio
+            import os
             from super_gem_analyzer import SuperGemsAnalyzer
             
             # Get config
@@ -721,10 +722,21 @@ def create_app(config_name=None):
             
             logger.info(f"Starting manual super gems analysis for last {analysis_hours} hours...")
             
+            # Get proper database path
+            database_url = app.config.get('DATABASE_URL', '')
+            if database_url.startswith('sqlite:///'):
+                db_path = database_url.replace('sqlite:///', '')
+                # Handle relative vs absolute paths
+                if not db_path.startswith('/'):
+                    # For relative paths, resolve to absolute
+                    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', os.path.basename(db_path))
+            else:
+                db_path = 'instance/hn_hidden_gems.db'  # fallback
+            
             # Create analyzer
             analyzer = SuperGemsAnalyzer(
                 gemini_api_key=gemini_api_key,
-                db_path=app.config.get('DATABASE_URL', '').replace('sqlite:///', '')
+                db_path=db_path
             )
             
             # Run analysis

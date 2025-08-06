@@ -34,22 +34,22 @@ class SuperGemAnalysis:
     has_documentation: bool
     is_commercially_focused: bool  # negative signal
     
-    # GitHub Analysis (if applicable)
-    github_stars: int = 0
-    github_commits: int = 0
-    github_contributors: int = 0
-    code_quality_score: float = 0.0
-    readme_quality: float = 0.0
-    
     # Summary
     llm_reasoning: str
     super_gem_score: float  # 0-1 final score
     key_strengths: List[str]
     potential_concerns: List[str]
     similar_tools: List[str]
+    
+    # GitHub Analysis (if applicable) - with defaults
+    github_stars: int = 0
+    github_commits: int = 0
+    github_contributors: int = 0
+    code_quality_score: float = 0.0
+    readme_quality: float = 0.0
 
 class SuperGemsAnalyzer:
-    def __init__(self, gemini_api_key: str, db_path: str = "hn_hidden_gems.db"):
+    def __init__(self, gemini_api_key: str, db_path: str = "instance/hn_hidden_gems.db"):
         self.db_path = db_path
         genai.configure(api_key=gemini_api_key)
         self.model = genai.GenerativeModel('gemini-2.5-flash')
@@ -293,21 +293,27 @@ class SuperGemsAnalyzer:
         conn.row_factory = sqlite3.Row
         
         cutoff_time = datetime.now() - timedelta(hours=hours)
-        cutoff_timestamp = int(cutoff_time.timestamp())
         
-        # Query for top gems
+        # Query for top gems using the actual database schema
         query = """
-        SELECT * FROM analyzed_posts 
-        WHERE created_at > ? 
-        AND spam_likelihood < 0.3
-        AND overall_interest > 0.4
-        AND author_karma < 100
-        ORDER BY overall_interest DESC
+        SELECT 
+            p.id, p.hn_id, p.title, p.url, p.text, p.author, p.author_karma,
+            p.score, p.descendants, p.hn_created_at, p.created_at,
+            qs.overall_interest as gem_score, qs.spam_likelihood,
+            qs.technical_depth, qs.originality, qs.problem_solving
+        FROM posts p 
+        JOIN quality_scores qs ON p.id = qs.post_id
+        WHERE p.created_at > ? 
+        AND qs.spam_likelihood < 0.3
+        AND qs.overall_interest > 0.4
+        AND p.author_karma < 100
+        AND p.is_hidden_gem = 1
+        ORDER BY qs.overall_interest DESC
         LIMIT ?
         """
         
         cursor = conn.cursor()
-        cursor.execute(query, (cutoff_timestamp, limit * 2))  # Get extra in case some fail
+        cursor.execute(query, (cutoff_time, limit * 2))  # Get extra in case some fail
         
         posts = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -572,25 +578,29 @@ class SuperGemsAnalyzer:
         print(f"Fetching top gems from last {hours} hours...")
         top_gems = await self.get_top_gems(hours=hours, limit=top_n * 2)
         
+        print(f"Database query returned {len(top_gems)} candidate gems")
+        
         if not top_gems:
-            print("No gems found in the specified time range")
+            print("No gems found in the specified time range - creating placeholder page")
+            self.generate_placeholder_html()
             return
         
         print(f"Found {len(top_gems)} candidates, analyzing with LLM...")
         
         super_gems = []
-        for gem in top_gems:
-            if len(super_gems) >= top_n:
-                break
+        for gem in top_gems[:top_n]:  # Limit to avoid too many API calls
+            try:
+                print(f"Analyzing: {gem['title'][:50]}...")
+                analysis = await self.analyze_with_llm(gem)
                 
-            print(f"Analyzing: {gem['title']}")
-            analysis = await self.analyze_with_llm(gem)
-            
-            if analysis and analysis.super_gem_score > 0.5:  # Quality threshold
-                super_gems.append(analysis)
-                print(f"  ✓ Super gem! Score: {analysis.super_gem_score:.2f}")
-            else:
-                print(f"  ✗ Not qualified as super gem")
+                if analysis and analysis.super_gem_score > 0.3:  # Lower threshold for testing
+                    super_gems.append(analysis)
+                    print(f"  ✓ Super gem! Score: {analysis.super_gem_score:.2f}")
+                else:
+                    print(f"  ✗ Not qualified as super gem (score: {analysis.super_gem_score if analysis else 'Failed'})")
+            except Exception as e:
+                print(f"  ✗ Error analyzing gem: {e}")
+                continue
         
         if super_gems:
             print(f"\nGenerating static HTML with {len(super_gems)} super gems...")
@@ -624,7 +634,41 @@ class SuperGemsAnalyzer:
                     for g in super_gems
                 ], f, indent=2)
         else:
-            print("No posts qualified as super gems")
+            print("No posts qualified as super gems - creating placeholder page")
+            self.generate_placeholder_html()
+    
+    def generate_placeholder_html(self):
+        """Generate placeholder HTML when no super gems are found"""
+        html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HN Super Gems - No Results</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { color: #ff6600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 No Super Gems Found</h1>
+        <p>No qualifying super gems were found in the specified time window.</p>
+        <p>This could be because:</p>
+        <ul style="text-align: left;">
+            <li>No high-quality gems from low-karma users in the recent period</li>
+            <li>Posts haven't reached the quality threshold</li>
+            <li>Database needs more historical data</li>
+        </ul>
+        <p><a href="/">← Back to Hidden Gems Feed</a></p>
+    </div>
+</body>
+</html>"""
+        
+        with open('super-gems.html', 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        print("Generated placeholder super-gems.html")
 
 
 # Scheduler script
@@ -638,7 +682,7 @@ async def scheduled_super_gems_analysis():
     
     analyzer = SuperGemsAnalyzer(
         gemini_api_key=GEMINI_API_KEY,
-        db_path='hn_hidden_gems.db'
+        db_path='instance/hn_hidden_gems.db'
     )
     
     await analyzer.run_analysis(

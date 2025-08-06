@@ -555,10 +555,22 @@ class PostCollectionScheduler:
             
             logger.info(f"Starting super gems analysis for last {analysis_hours} hours...")
             
+            # Get proper database path
+            import os
+            database_url = self.app.config.get('DATABASE_URL', '')
+            if database_url.startswith('sqlite:///'):
+                db_path = database_url.replace('sqlite:///', '')
+                # Handle relative vs absolute paths
+                if not db_path.startswith('/'):
+                    # For relative paths, resolve to absolute
+                    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'instance', os.path.basename(db_path))
+            else:
+                db_path = 'instance/hn_hidden_gems.db'  # fallback
+            
             # Create analyzer
             analyzer = SuperGemsAnalyzer(
                 gemini_api_key=gemini_api_key,
-                db_path=self.app.config.get('DATABASE_URL', '').replace('sqlite:///', '')
+                db_path=db_path
             )
             
             # Run analysis in async context
