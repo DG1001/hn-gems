@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, jsonify, request, current_app, send_from_directory, send_file
 from hn_hidden_gems.models import Post, QualityScore, HallOfFame, User
 from hn_hidden_gems.utils.logger import setup_logger
@@ -237,14 +237,22 @@ def rss_feed():
             fe.id(post.hn_url)
             fe.title(post.title)
             fe.link(href=post.url or post.hn_url)
+            # Use cleaned text for better RSS content
+            clean_text = post._clean_text(post.text) if post.text else ''
+            preview_text = clean_text[:200] + '...' if len(clean_text) > 200 else clean_text
+            
             fe.description(f"""
                 <p><strong>Hidden Gem Discovered!</strong></p>
                 <p>Author: {post.author} (karma: {post.author_karma})</p>
                 <p>Quality Score: {post.quality_score.overall_interest:.2f}</p>
                 <p><a href="{post.hn_url}">View on Hacker News</a></p>
-                {f'<p>{post.text[:200]}...</p>' if post.text else ''}
+                {f'<p>{preview_text}</p>' if preview_text else ''}
             """)
-            fe.pubDate(post.created_at)
+            # Ensure datetime has timezone info for RSS feed
+            pub_date = post.created_at
+            if pub_date and pub_date.tzinfo is None:
+                pub_date = pub_date.replace(tzinfo=timezone.utc)
+            fe.pubDate(pub_date)
             fe.author({'name': f'HN User: {post.author}'})
         
         response = current_app.response_class(
