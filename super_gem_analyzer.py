@@ -190,43 +190,28 @@ class SuperGemsAnalyzer:
         """Perform deep analysis using Gemini"""
         
         try:
-            print(f"DEBUG: Starting analyze_with_llm for post {post['id']}")
-            
             # Prepare post content
-            print(f"DEBUG: Preparing post content for post {post['id']}")
             post_text = post.get('text', '')
             if not post_text and post.get('url'):
                 # Try to fetch content from URL
                 post_text = await self.fetch_url_content(post['url'])
                 post_text = post_text[:3000]  # Limit to first 3k chars
-            print(f"DEBUG: Post text length: {len(post_text)}")
         except Exception as e:
-            print(f"DEBUG: Error in initial setup: {e}")
-            import traceback
-            print(f"DEBUG: Full traceback: {traceback.format_exc()}")
+            print(f"Error preparing post content for {post['id']}: {e}")
             raise
         
         try:
             # Check for GitHub repo
-            print(f"DEBUG: Checking for GitHub repo for post {post['id']}")
             github_url = self.extract_github_url(post_text + ' ' + post.get('url', ''), post.get('url', ''))
-            print(f"DEBUG: GitHub URL found: {github_url}")
             github_data = {}
             if github_url:
-                print(f"DEBUG: Analyzing GitHub repo for post {post['id']}")
                 github_data = await self.analyze_github_repo(github_url)
-                print(f"DEBUG: GitHub analysis completed for post {post['id']}")
         except Exception as e:
-            print(f"DEBUG: Error in GitHub analysis: {e}")
-            import traceback
-            print(f"DEBUG: GitHub error traceback: {traceback.format_exc()}")
+            print(f"Error in GitHub analysis for post {post['id']}: {e}")
             github_data = {}
         
         try:
-            # Main LLM analysis
-            print(f"DEBUG: Formatting prompt for post {post['id']}")
-            
-            # Escape any curly braces in the post text to avoid format conflicts
+            # Main LLM analysis - escape any curly braces in the post text to avoid format conflicts
             safe_post_text = post_text[:2000].replace('{', '{{').replace('}', '}}')
             safe_title = post['title'].replace('{', '{{').replace('}', '}}')
             safe_url = post.get('url', 'No URL').replace('{', '{{').replace('}', '}}')
@@ -237,21 +222,15 @@ class SuperGemsAnalyzer:
                 text=safe_post_text,
                 author_karma=post.get('author_karma', 0)
             )
-            print(f"DEBUG: Prompt formatted successfully for post {post['id']}")
         except Exception as e:
-            print(f"DEBUG: Error formatting prompt: {e}")
-            import traceback
-            print(f"DEBUG: Prompt error traceback: {traceback.format_exc()}")
+            print(f"Error formatting prompt for post {post['id']}: {e}")
             raise
         
         try:
-            print(f"DEBUG: About to call Gemini API for post {post['id']}")
             response = self.model.generate_content(main_prompt)
-            print(f"DEBUG: Got response from Gemini for post {post['id']}")
             
             # Parse LLM response with better error handling
             response_text = response.text.strip()
-            print(f"DEBUG: Response text length: {len(response_text)}")
             if not response_text:
                 print(f"Empty response from Gemini for post {post['id']}")
                 return None
@@ -271,12 +250,10 @@ class SuperGemsAnalyzer:
                     response_text = response_text[start:end].strip()
             
             try:
-                print(f"DEBUG: Attempting to parse JSON for post {post['id']}")
                 analysis_data = json.loads(response_text)
-                print(f"DEBUG: Successfully parsed JSON for post {post['id']}, keys: {list(analysis_data.keys())}")
             except json.JSONDecodeError as e:
-                print(f"DEBUG: Failed to parse Gemini JSON response for post {post['id']}: {e}")
-                print(f"DEBUG: Response was: {response_text[:200]}...")
+                print(f"Failed to parse Gemini JSON response for post {post['id']}: {e}")
+                print(f"Response was: {response_text[:200]}...")
                 
                 # Fallback: create dummy analysis data
                 analysis_data = {
@@ -296,25 +273,43 @@ class SuperGemsAnalyzer:
                 }
             
             # GitHub-specific analysis if applicable
+            github_analysis = {}
             if github_data:
-                github_prompt = self.github_analysis_prompt.format(
-                    repo_url=github_url,
-                    readme=github_data.get('readme_content', ''),
-                    file_structure="[Would need repo clone for full analysis]",
-                    recent_commits="[Would need API calls for commit history]"
-                )
-                
-                github_response = self.model.generate_content(github_prompt)
-                github_analysis = json.loads(github_response.text)
-            else:
-                github_analysis = {}
+                try:
+                    github_prompt = self.github_analysis_prompt.format(
+                        repo_url=github_url,
+                        readme=github_data.get('readme_content', ''),
+                        file_structure="[Would need repo clone for full analysis]",
+                        recent_commits="[Would need API calls for commit history]"
+                    )
+                    
+                    github_response = self.model.generate_content(github_prompt)
+                    github_response_text = github_response.text.strip()
+                    
+                    # Apply same JSON extraction logic as main analysis
+                    if '```json' in github_response_text:
+                        start = github_response_text.find('```json') + 7
+                        end = github_response_text.find('```', start)
+                        if end > start:
+                            github_response_text = github_response_text[start:end].strip()
+                    elif '```' in github_response_text:
+                        start = github_response_text.find('```') + 3
+                        end = github_response_text.find('```', start)
+                        if end > start:
+                            github_response_text = github_response_text[start:end].strip()
+                    
+                    try:
+                        github_analysis = json.loads(github_response_text)
+                    except json.JSONDecodeError as e:
+                        print(f"Failed to parse GitHub JSON response for post {post['id']}: {e}")
+                        print(f"GitHub response was: {github_response_text[:200] if 'github_response_text' in locals() else 'No response'}...")
+                        github_analysis = {'code_quality': 0, 'readme_quality': 0}
+                    
+                except Exception as e:
+                    print(f"Error in GitHub-specific analysis for post {post['id']}: {e}")
+                    github_analysis = {'code_quality': 0, 'readme_quality': 0}
             
-            # Combine all analysis
-            print(f"About to create SuperGemAnalysis...")
-            print(f"analysis_data type: {type(analysis_data)}")
-            print(f"analysis_data keys: {list(analysis_data.keys()) if isinstance(analysis_data, dict) else 'Not a dict!'}")
-            
-            # Validate all parameters before creating the object
+            # Combine all analysis and create SuperGemAnalysis object
             params = {
                 'post_id': post['id'],
                 'title': post['title'],
@@ -340,11 +335,6 @@ class SuperGemsAnalyzer:
                 'code_quality_score': github_analysis.get('code_quality', 0),
                 'readme_quality': github_analysis.get('readme_quality', 0)
             }
-            
-            # Check for any string values that look like JSON
-            for key, value in params.items():
-                if isinstance(value, str) and ('technical_innovation' in value or '{' in value):
-                    print(f"WARNING: Parameter {key} contains suspicious JSON-like content: {repr(value[:100])}")
             
             super_gem = SuperGemAnalysis(**params)
             

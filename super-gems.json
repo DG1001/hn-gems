@@ -1,0 +1,169 @@
+[
+  {
+    "post_id": 1169,
+    "title": "Show HN: Built an Agentic Gaming PC Builder",
+    "url": "https://github.com/runagent-dev/runagent",
+    "author": "Radeen1",
+    "super_gem_score": 0.9900000000000001,
+    "analysis": {
+      "technical_innovation": 0.85,
+      "problem_significance": 0.75,
+      "implementation_quality": 0.7,
+      "community_value": 0.85,
+      "uniqueness": 0.8
+    },
+    "badges": {
+      "is_open_source": true,
+      "has_demo": true,
+      "github_stars": 297
+    },
+    "reasoning": "This Show HN post presents a technically innovative approach to building agentic applications, specifically a real-time gaming PC builder. Its primary value to the developer community is showcasing cross-language interoperability between Go and Python for AI logic with streaming capabilities, using the Agno and RunAgent frameworks. This provides a valuable, concrete example for developers interested in agent frameworks, distributed AI systems, and microservices. While the PC builder itself is a specific application, the underlying architectural patterns are broadly applicable. The project is open-source (indicated by the GitHub link) and appears to demonstrate a working, live-streaming example.",
+    "strengths": [
+      "Innovative cross-language agent architecture (Go for backend, Python for AI logic) with streaming.",
+      "Practical demonstration of building agentic behavior (live thinking, dynamic recommendations).",
+      "Showcases specific frameworks (Agno, RunAgent) that enable this interoperability.",
+      "Addresses a real consumer problem (PC building) in a novel, dynamic way.",
+      "Open-source nature allows for inspection, learning, and potential contribution.",
+      "Solves a developer pain point of integrating multi-language AI components."
+    ],
+    "concerns": [
+      "Low author karma (1) might indicate a very new project or unestablished team, potentially affecting long-term support.",
+      "Described as a 'small project,' which suggests it may be more of a proof-of-concept than a production-ready solution.",
+      "Reliance on specific, potentially niche frameworks (Agno, RunAgent) whose widespread adoption and long-term stability are uncertain.",
+      "The post itself does not directly link to a live demo, only the GitHub repo (though implied by 'streams live as it thinks')."
+    ]
+  },
+  {
+    "post_id": 94,
+    "title": "Show HN: FlexLLama \u2013 Run multiple local LLMs at once with a simple dashboard",
+    "url": "https://github.com/yazon/flexllama",
+    "author": "yazon",
+    "super_gem_score": 0.9600000000000001,
+    "analysis": {
+      "technical_innovation": 0.7,
+      "problem_significance": 0.9,
+      "implementation_quality": 0.8,
+      "community_value": 0.9,
+      "uniqueness": 0.7
+    },
+    "badges": {
+      "is_open_source": true,
+      "has_demo": false,
+      "github_stars": 29
+    },
+    "reasoning": "FlexLLama addresses a significant pain point for developers using local LLMs by enabling concurrent execution of multiple llama.cpp instances with on-the-fly model reloading, all accessible via a single OpenAI-compatible API and managed through a simple dashboard. Its ease of use and open-source nature make it highly valuable to the community, offering a more streamlined workflow compared to manually juggling separate servers.",
+    "strengths": [
+      "Solves a common developer pain point (juggling multiple llama.cpp instances and restarts).",
+      "Provides a unified OpenAI-compatible API for various model types (chat, embeddings, rerankers).",
+      "Supports on-the-fly model reloading, improving workflow efficiency.",
+      "Allows concurrent use of multiple models across CPU and GPU resources.",
+      "Easy setup via pip or Docker.",
+      "Includes a web dashboard for monitoring and management.",
+      "Open source, fostering community contribution and trust."
+    ],
+    "concerns": [
+      "Potential for high resource consumption when running many models concurrently.",
+      "Maturity and long-term maintenance of a new open-source project.",
+      "Performance implications of managing multiple `llama.cpp` instances compared to optimized single-model serving."
+    ]
+  },
+  {
+    "post_id": 1224,
+    "title": "Show HN: MCPJungle \u2013 self-hosted Gateway for connecting AI Agents to MCP tools",
+    "url": "https://github.com/mcpjungle/MCPJungle",
+    "author": "duaraghav8",
+    "super_gem_score": 0.885,
+    "analysis": {
+      "technical_innovation": 0.6,
+      "problem_significance": 0.9,
+      "implementation_quality": 0.8,
+      "community_value": 0.9,
+      "uniqueness": 0.7
+    },
+    "badges": {
+      "is_open_source": true,
+      "has_demo": false,
+      "github_stars": 226
+    },
+    "reasoning": "MCPJungle provides a self-hosted, open-source gateway for the emerging Model Context Protocol (MCP), aiming to simplify tool management for AI agents. It addresses significant developer pain points related to discovery, access control, and observability for LLM tools, with a strong focus on ease of deployment and developer experience.",
+    "strengths": [
+      "Solves a clear and growing pain point in LLM agent development (tool management, ACLs, discovery)",
+      "Open-source and self-hosted, offering control and privacy",
+      "Simple and friction-less deployment (single binary, Go, Homebrew, Docker)",
+      "Centralizes management of MCP tools behind a single endpoint",
+      "Focus on developer experience with sensible defaults"
+    ],
+    "concerns": [
+      "Early stage of development, potentially lacking maturity or advanced features",
+      "Value is highly dependent on the widespread adoption and success of the MCP standard itself",
+      "Quality of documentation cannot be ascertained from the post text alone",
+      "Long-term maintenance and community contribution for an early open-source project"
+    ]
+  },
+  {
+    "post_id": 1310,
+    "title": "Show HN: FaKeTime \u2013 A Kotlin library for easy fake time control in tests",
+    "url": "https://github.com/matcha4smiley/faKeTime",
+    "author": "matcha4smiley",
+    "super_gem_score": 0.755,
+    "analysis": {
+      "technical_innovation": 0.4,
+      "problem_significance": 0.9,
+      "implementation_quality": 0.6,
+      "community_value": 0.8,
+      "uniqueness": 0.5
+    },
+    "badges": {
+      "is_open_source": true,
+      "has_demo": false,
+      "github_stars": 2
+    },
+    "reasoning": "faKeTime addresses a significant pain point for developers: flaky tests caused by time dependencies. While the concept of faking time for tests is not new, this library aims to provide a Kotlin-idiomatic and potentially simpler API specifically for this purpose. It's currently in early development with only one core feature fully implemented, but promises more advanced capabilities. Its open-source nature and clear focus on a common developer problem make it valuable to the community.",
+    "strengths": [
+      "Solves a real and common developer pain point (flaky time-dependent tests)",
+      "Open source and accessible via GitHub",
+      "Targets Kotlin developers with a potentially idiomatic API",
+      "Clear problem statement and proposed solution"
+    ],
+    "concerns": [
+      "Very early stage (only 'freeze time' is implemented, other features 'coming soon')",
+      "Currently JVM-only (Kotlin Multiplatform support is 'in the works')",
+      "Potential overlap with existing, more mature general-purpose mocking frameworks (e.g., Mockito for `Clock` mocking)",
+      "Limited functionality described in the initial release"
+    ]
+  },
+  {
+    "post_id": 93,
+    "title": "Show HN: I built Deep Research for SEO keywords",
+    "url": "https://www.jelloseo.com/",
+    "author": "grantsingleton",
+    "super_gem_score": 0.555,
+    "analysis": {
+      "technical_innovation": 0.6,
+      "problem_significance": 0.9,
+      "implementation_quality": 0.7,
+      "community_value": 0.8,
+      "uniqueness": 0.8
+    },
+    "badges": {
+      "is_open_source": false,
+      "has_demo": false,
+      "github_stars": 0
+    },
+    "reasoning": "The tool addresses a significant pain point for developers, founders, and indie hackers who need to perform SEO keyword research but lack expert knowledge or time for traditional methods. Its innovative approach of using LLMs (ChatGPT o3) for natural language-driven keyword discovery, rather than relying on seed keywords, offers a unique value proposition. While it leverages existing powerful APIs, its orchestration for this specific use case is novel. It promises significant time savings and discovery of non-obvious keywords, making it highly relevant for the HN community focused on building and launching products. However, its commercial nature, lack of a free trial/interactive demo, and absence of public documentation might be initial hurdles for trust and adoption.",
+    "strengths": [
+      "Solves a real, common pain point for non-SEO experts (e.g., developers, founders).",
+      "Leverages modern AI (LLMs) for intuitive natural language input.",
+      "Promises to uncover relevant and unexpected niche keywords.",
+      "Potentially a huge time-saver compared to manual keyword research.",
+      "Affordable pricing ($9/month)."
+    ],
+    "concerns": [
+      "No free trial or interactive demo makes it difficult to verify claims before paying.",
+      "The claim 'ROI is obvious' without direct proof can be a red flag.",
+      "Reliance on external APIs (ChatGPT, DataForSEO) means performance and cost are dependent on third parties.",
+      "Lack of technical documentation or transparency on the methodology beyond high-level API usage.",
+      "Not open source, which is often preferred by the HN developer community for tools."
+    ]
+  }
+]
