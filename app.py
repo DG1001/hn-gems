@@ -537,7 +537,7 @@ def create_app(config_name=None):
                 logger.info("Scheduled Jobs:")
                 for job in status['jobs']:
                     logger.info(f"  - {job['name']}")
-                    logger.info(f"    Next run: {job['next_run'] or 'Not scheduled']}")
+                    logger.info(f"    Next run: {job['next_run'] or 'Not scheduled'}")
             
             stats = status['stats']
             logger.info(f"\nStatistics:")
