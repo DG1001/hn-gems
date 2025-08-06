@@ -750,6 +750,11 @@ def create_app(config_name=None):
     # Auto-start scheduler if enabled
     def start_background_scheduler():
         """Start scheduler when Flask app starts."""
+        # Only start scheduler in main process, not in Flask reloader process
+        if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+            logger.info("Skipping scheduler start in Flask reloader process")
+            return
+            
         collection_interval = int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5))
         if collection_interval > 0:
             if scheduler.start():
