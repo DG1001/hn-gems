@@ -18,7 +18,6 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
 - **Hall of Fame**: Automated tracking of discovered gems that later became popular (≥100 points)
 - **Success Metrics**: Real-time monitoring of discovery accuracy and timing
 - **Quality Analysis**: AI-powered content analysis to identify technical depth and originality
-- **Multiple Notification Channels**: Email, Discord, Slack, and RSS feeds
 - **Anti-spam Protection**: Advanced filtering to maintain high quality
 - **Time-based Collection**: Intelligent collection that only processes posts from specified time windows
 
@@ -75,7 +74,9 @@ Configure the application using environment variables:
 ### Core Settings
 - `FLASK_ENV`: development/production
 - `DATABASE_URL`: Database connection string
-- `OPENAI_API_KEY`: OpenAI API key for content analysis
+- `SECRET_KEY`: Flask secret key for security
+- `HOST`: Server host (default: 127.0.0.1)
+- `PORT`: Server port (default: 5000)
 
 ### Background Services
 - `POST_COLLECTION_INTERVAL_MINUTES=5`: Minutes between post collections (0 to disable)
@@ -87,28 +88,21 @@ Configure the application using environment variables:
 - `KARMA_THRESHOLD=100`: Max author karma for gems
 - `MIN_INTEREST_SCORE=0.3`: Min quality score for gems
 
-### Notification Settings
-- `SMTP_*`: Email notification settings
-- `DISCORD_WEBHOOK_URL`: Discord webhook for notifications
-- `SLACK_WEBHOOK_URL`: Slack webhook for notifications
+### Logging Settings
+- `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `LOG_FILE`: Log file path (default: logs/app.log)
 
 ## Development
 
 ```bash
-# Install development dependencies
-pip install -e ".[dev]"
-
-# Run tests
+# Run tests (when implemented)
 pytest
 
-# Format code
-black .
+# Check service status
+flask collection-status
 
-# Type checking
-mypy .
-
-# Linting
-flake8
+# View configuration
+flask config-collection
 ```
 
 ## Background Collection Service
