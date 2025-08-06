@@ -88,7 +88,7 @@ class SuperGemsAnalyzer:
         - Not just another wrapper around existing APIs
         
         IMPORTANT: Return your analysis ONLY as a valid JSON object with the following exact structure:
-        {
+        {{
             "technical_innovation": 0.0-1.0,
             "problem_significance": 0.0-1.0,
             "implementation_quality": 0.0-1.0,
@@ -102,7 +102,7 @@ class SuperGemsAnalyzer:
             "strengths": ["strength1", "strength2"],
             "concerns": ["concern1", "concern2"],
             "similar_tools": ["tool1", "tool2"]
-        }
+        }}
         """
         
         self.github_analysis_prompt = """
@@ -189,34 +189,71 @@ class SuperGemsAnalyzer:
     async def analyze_with_llm(self, post: Dict[str, Any]) -> SuperGemAnalysis:
         """Perform deep analysis using Gemini"""
         
-        # Prepare post content
-        post_text = post.get('text', '')
-        if not post_text and post.get('url'):
-            # Try to fetch content from URL
-            post_text = await self.fetch_url_content(post['url'])
-            post_text = post_text[:3000]  # Limit to first 3k chars
-        
-        # Check for GitHub repo
-        github_url = self.extract_github_url(post_text + ' ' + post.get('url', ''), post.get('url', ''))
-        github_data = {}
-        if github_url:
-            github_data = await self.analyze_github_repo(github_url)
-        
-        # Main LLM analysis
-        main_prompt = self.main_analysis_prompt.format(
-            title=post['title'],
-            url=post.get('url', 'No URL'),
-            text=post_text[:2000],  # Limit text length
-            author_karma=post.get('author_karma', 0)
-        )
+        try:
+            print(f"DEBUG: Starting analyze_with_llm for post {post['id']}")
+            
+            # Prepare post content
+            print(f"DEBUG: Preparing post content for post {post['id']}")
+            post_text = post.get('text', '')
+            if not post_text and post.get('url'):
+                # Try to fetch content from URL
+                post_text = await self.fetch_url_content(post['url'])
+                post_text = post_text[:3000]  # Limit to first 3k chars
+            print(f"DEBUG: Post text length: {len(post_text)}")
+        except Exception as e:
+            print(f"DEBUG: Error in initial setup: {e}")
+            import traceback
+            print(f"DEBUG: Full traceback: {traceback.format_exc()}")
+            raise
         
         try:
+            # Check for GitHub repo
+            print(f"DEBUG: Checking for GitHub repo for post {post['id']}")
+            github_url = self.extract_github_url(post_text + ' ' + post.get('url', ''), post.get('url', ''))
+            print(f"DEBUG: GitHub URL found: {github_url}")
+            github_data = {}
+            if github_url:
+                print(f"DEBUG: Analyzing GitHub repo for post {post['id']}")
+                github_data = await self.analyze_github_repo(github_url)
+                print(f"DEBUG: GitHub analysis completed for post {post['id']}")
+        except Exception as e:
+            print(f"DEBUG: Error in GitHub analysis: {e}")
+            import traceback
+            print(f"DEBUG: GitHub error traceback: {traceback.format_exc()}")
+            github_data = {}
+        
+        try:
+            # Main LLM analysis
+            print(f"DEBUG: Formatting prompt for post {post['id']}")
+            
+            # Escape any curly braces in the post text to avoid format conflicts
+            safe_post_text = post_text[:2000].replace('{', '{{').replace('}', '}}')
+            safe_title = post['title'].replace('{', '{{').replace('}', '}}')
+            safe_url = post.get('url', 'No URL').replace('{', '{{').replace('}', '}}')
+            
+            main_prompt = self.main_analysis_prompt.format(
+                title=safe_title,
+                url=safe_url,
+                text=safe_post_text,
+                author_karma=post.get('author_karma', 0)
+            )
+            print(f"DEBUG: Prompt formatted successfully for post {post['id']}")
+        except Exception as e:
+            print(f"DEBUG: Error formatting prompt: {e}")
+            import traceback
+            print(f"DEBUG: Prompt error traceback: {traceback.format_exc()}")
+            raise
+        
+        try:
+            print(f"DEBUG: About to call Gemini API for post {post['id']}")
             response = self.model.generate_content(main_prompt)
+            print(f"DEBUG: Got response from Gemini for post {post['id']}")
             
             # Parse LLM response with better error handling
             response_text = response.text.strip()
+            print(f"DEBUG: Response text length: {len(response_text)}")
             if not response_text:
-                logger.error(f"Empty response from Gemini for post {post['id']}")
+                print(f"Empty response from Gemini for post {post['id']}")
                 return None
             
             # Try to extract JSON from response (sometimes wrapped in markdown)
@@ -234,11 +271,12 @@ class SuperGemsAnalyzer:
                     response_text = response_text[start:end].strip()
             
             try:
+                print(f"DEBUG: Attempting to parse JSON for post {post['id']}")
                 analysis_data = json.loads(response_text)
-                print(f"Successfully parsed JSON for post {post['id']}")
+                print(f"DEBUG: Successfully parsed JSON for post {post['id']}, keys: {list(analysis_data.keys())}")
             except json.JSONDecodeError as e:
-                print(f"Failed to parse Gemini JSON response for post {post['id']}: {e}")
-                print(f"Response was: {response_text[:200]}...")
+                print(f"DEBUG: Failed to parse Gemini JSON response for post {post['id']}: {e}")
+                print(f"DEBUG: Response was: {response_text[:200]}...")
                 
                 # Fallback: create dummy analysis data
                 analysis_data = {
@@ -272,39 +310,43 @@ class SuperGemsAnalyzer:
                 github_analysis = {}
             
             # Combine all analysis
-            super_gem = SuperGemAnalysis(
-                post_id=post['id'],
-                title=post['title'],
-                url=post.get('url', ''),
-                author=post['by'],
-                author_karma=post.get('author_karma', 0),
-                original_score=post.get('gem_score', 0),
-                
-                # LLM scores
-                technical_innovation=analysis_data.get('technical_innovation', 0),
-                problem_significance=analysis_data.get('problem_significance', 0),
-                implementation_quality=analysis_data.get('implementation_quality', 0),
-                community_value=analysis_data.get('community_value', 0),
-                uniqueness_score=analysis_data.get('uniqueness', 0),
-                
-                # Specific checks
-                is_open_source=analysis_data.get('is_open_source', False),
-                has_working_demo=analysis_data.get('has_working_demo', False),
-                has_documentation=analysis_data.get('has_documentation', False),
-                is_commercially_focused=analysis_data.get('is_commercial', False),
-                
-                # Summary (required fields without defaults)
-                llm_reasoning=analysis_data.get('reasoning', ''),
-                super_gem_score=self.calculate_super_gem_score(analysis_data, github_data),
-                key_strengths=analysis_data.get('strengths', []),
-                potential_concerns=analysis_data.get('concerns', []),
-                similar_tools=analysis_data.get('similar_tools', []),
-                
-                # GitHub stats (optional fields with defaults)
-                github_stars=github_data.get('stars', 0),
-                code_quality_score=github_analysis.get('code_quality', 0),
-                readme_quality=github_analysis.get('readme_quality', 0)
-            )
+            print(f"About to create SuperGemAnalysis...")
+            print(f"analysis_data type: {type(analysis_data)}")
+            print(f"analysis_data keys: {list(analysis_data.keys()) if isinstance(analysis_data, dict) else 'Not a dict!'}")
+            
+            # Validate all parameters before creating the object
+            params = {
+                'post_id': post['id'],
+                'title': post['title'],
+                'url': post.get('url', ''),
+                'author': post.get('by') or post.get('author', 'Unknown'),
+                'author_karma': post.get('author_karma', 0),
+                'original_score': post.get('gem_score', 0),
+                'technical_innovation': analysis_data.get('technical_innovation', 0),
+                'problem_significance': analysis_data.get('problem_significance', 0),
+                'implementation_quality': analysis_data.get('implementation_quality', 0),
+                'community_value': analysis_data.get('community_value', 0),
+                'uniqueness_score': analysis_data.get('uniqueness', 0),
+                'is_open_source': analysis_data.get('is_open_source', False),
+                'has_working_demo': analysis_data.get('has_working_demo', False),
+                'has_documentation': analysis_data.get('has_documentation', False),
+                'is_commercially_focused': analysis_data.get('is_commercial', False),
+                'llm_reasoning': analysis_data.get('reasoning', ''),
+                'super_gem_score': self.calculate_super_gem_score(analysis_data, github_data),
+                'key_strengths': analysis_data.get('strengths', []),
+                'potential_concerns': analysis_data.get('concerns', []),
+                'similar_tools': analysis_data.get('similar_tools', []),
+                'github_stars': github_data.get('stars', 0),
+                'code_quality_score': github_analysis.get('code_quality', 0),
+                'readme_quality': github_analysis.get('readme_quality', 0)
+            }
+            
+            # Check for any string values that look like JSON
+            for key, value in params.items():
+                if isinstance(value, str) and ('technical_innovation' in value or '{' in value):
+                    print(f"WARNING: Parameter {key} contains suspicious JSON-like content: {repr(value[:100])}")
+            
+            super_gem = SuperGemAnalysis(**params)
             
             return super_gem
             
