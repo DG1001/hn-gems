@@ -87,7 +87,22 @@ class SuperGemsAnalyzer:
         - Active development
         - Not just another wrapper around existing APIs
         
-        Return your analysis as a JSON object with all the scores and findings.
+        IMPORTANT: Return your analysis ONLY as a valid JSON object with the following exact structure:
+        {
+            "technical_innovation": 0.0-1.0,
+            "problem_significance": 0.0-1.0,
+            "implementation_quality": 0.0-1.0,
+            "community_value": 0.0-1.0,
+            "uniqueness": 0.0-1.0,
+            "is_open_source": true/false,
+            "has_working_demo": true/false,
+            "has_documentation": true/false,
+            "is_commercial": true/false,
+            "reasoning": "brief explanation",
+            "strengths": ["strength1", "strength2"],
+            "concerns": ["concern1", "concern2"],
+            "similar_tools": ["tool1", "tool2"]
+        }
         """
         
         self.github_analysis_prompt = """
@@ -198,9 +213,49 @@ class SuperGemsAnalyzer:
         try:
             response = self.model.generate_content(main_prompt)
             
-            # Parse LLM response (assuming JSON)
-            # In practice, you'd need better parsing/validation
-            analysis_data = json.loads(response.text)
+            # Parse LLM response with better error handling
+            response_text = response.text.strip()
+            if not response_text:
+                logger.error(f"Empty response from Gemini for post {post['id']}")
+                return None
+            
+            # Try to extract JSON from response (sometimes wrapped in markdown)
+            if '```json' in response_text:
+                # Extract JSON from markdown code block
+                start = response_text.find('```json') + 7
+                end = response_text.find('```', start)
+                if end > start:
+                    response_text = response_text[start:end].strip()
+            elif '```' in response_text:
+                # Extract from generic code block
+                start = response_text.find('```') + 3
+                end = response_text.find('```', start)
+                if end > start:
+                    response_text = response_text[start:end].strip()
+            
+            try:
+                analysis_data = json.loads(response_text)
+                print(f"Successfully parsed JSON for post {post['id']}")
+            except json.JSONDecodeError as e:
+                print(f"Failed to parse Gemini JSON response for post {post['id']}: {e}")
+                print(f"Response was: {response_text[:200]}...")
+                
+                # Fallback: create dummy analysis data
+                analysis_data = {
+                    'technical_innovation': 0.5,
+                    'problem_significance': 0.5,
+                    'implementation_quality': 0.5,
+                    'community_value': 0.5,
+                    'uniqueness': 0.5,
+                    'is_open_source': False,
+                    'has_working_demo': False,
+                    'has_documentation': False,
+                    'is_commercial': False,
+                    'reasoning': f"Analysis failed due to JSON parsing error: {str(e)}",
+                    'strengths': ["Unable to analyze due to parsing error"],
+                    'concerns': ["LLM response parsing failed"],
+                    'similar_tools': []
+                }
             
             # GitHub-specific analysis if applicable
             if github_data:
@@ -238,19 +293,17 @@ class SuperGemsAnalyzer:
                 has_documentation=analysis_data.get('has_documentation', False),
                 is_commercially_focused=analysis_data.get('is_commercial', False),
                 
-                # GitHub stats
-                github_stars=github_data.get('stars', 0),
-                code_quality_score=github_analysis.get('code_quality', 0),
-                readme_quality=github_analysis.get('readme_quality', 0),
-                
-                # Summary
+                # Summary (required fields without defaults)
                 llm_reasoning=analysis_data.get('reasoning', ''),
+                super_gem_score=self.calculate_super_gem_score(analysis_data, github_data),
                 key_strengths=analysis_data.get('strengths', []),
                 potential_concerns=analysis_data.get('concerns', []),
                 similar_tools=analysis_data.get('similar_tools', []),
                 
-                # Calculate final score
-                super_gem_score=self.calculate_super_gem_score(analysis_data, github_data)
+                # GitHub stats (optional fields with defaults)
+                github_stars=github_data.get('stars', 0),
+                code_quality_score=github_analysis.get('code_quality', 0),
+                readme_quality=github_analysis.get('readme_quality', 0)
             )
             
             return super_gem
@@ -295,6 +348,7 @@ class SuperGemsAnalyzer:
         cutoff_time = datetime.now() - timedelta(hours=hours)
         
         # Query for top gems using the actual database schema
+        # Filter by HN post time (hn_created_at) not our discovery time (created_at)
         query = """
         SELECT 
             p.id, p.hn_id, p.title, p.url, p.text, p.author, p.author_karma,
@@ -303,7 +357,7 @@ class SuperGemsAnalyzer:
             qs.technical_depth, qs.originality, qs.problem_solving
         FROM posts p 
         JOIN quality_scores qs ON p.id = qs.post_id
-        WHERE p.created_at > ? 
+        WHERE p.hn_created_at > ? 
         AND qs.spam_likelihood < 0.3
         AND qs.overall_interest > 0.4
         AND p.author_karma < 100
@@ -597,9 +651,12 @@ class SuperGemsAnalyzer:
                     super_gems.append(analysis)
                     print(f"  ✓ Super gem! Score: {analysis.super_gem_score:.2f}")
                 else:
-                    print(f"  ✗ Not qualified as super gem (score: {analysis.super_gem_score if analysis else 'Failed'})")
+                    score_str = f"{analysis.super_gem_score:.2f}" if analysis else "Failed"
+                    print(f"  ✗ Not qualified as super gem (score: {score_str})")
             except Exception as e:
-                print(f"  ✗ Error analyzing gem: {e}")
+                print(f"  ✗ Error analyzing gem: {str(e)[:100]}...")
+                import traceback
+                print(f"     Full error: {traceback.format_exc()[:200]}...")
                 continue
         
         if super_gems:
