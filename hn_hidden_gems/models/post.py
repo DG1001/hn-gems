@@ -1,3 +1,5 @@
+import html
+import re
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from .database import db
@@ -72,6 +74,27 @@ class Post(db.Model):
         if 'time' in hn_data:
             self.hn_created_at = datetime.fromtimestamp(hn_data['time'])
     
+    def _clean_text(self, text):
+        """Clean HTML entities and basic HTML tags from text."""
+        if not text:
+            return text
+            
+        # Decode HTML entities (like &#x2F; -> /)
+        cleaned = html.unescape(text)
+        
+        # Remove basic HTML tags but keep the content
+        # This handles <p>, <i>, <a>, etc. while preserving line breaks
+        cleaned = re.sub(r'<p>', '\n\n', cleaned)  # Convert <p> to double newline
+        cleaned = re.sub(r'<br\s*/?>', '\n', cleaned)  # Convert <br> to newline
+        cleaned = re.sub(r'<[^>]+>', '', cleaned)  # Remove other HTML tags
+        
+        # Clean up excessive whitespace but preserve intentional line breaks
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)  # Max 2 consecutive newlines
+        cleaned = re.sub(r'[ \t]+', ' ', cleaned)  # Multiple spaces to single space
+        cleaned = cleaned.strip()
+        
+        return cleaned
+    
     def to_dict(self):
         """Convert post to dictionary for API responses."""
         return {
@@ -79,7 +102,7 @@ class Post(db.Model):
             'hn_id': self.hn_id,
             'title': self.title,
             'url': self.url,
-            'text': self.text,
+            'text': self._clean_text(self.text),
             'author': self.author,
             'author_karma': self.author_karma,
             'account_age_days': self.account_age_days,

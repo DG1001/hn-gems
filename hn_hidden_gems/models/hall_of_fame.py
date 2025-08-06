@@ -106,7 +106,7 @@ class HallOfFame(db.Model):
                 'author': self.post.author,
                 'author_karma': self.post.author_karma,
                 'url': self.post.url,
-                'text': self.post.text,
+                'text': self.post._clean_text(self.post.text),
                 'score': self.post.score,
                 'descendants': self.post.descendants,
                 'hn_url': self.post.hn_url,
