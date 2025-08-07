@@ -417,7 +417,7 @@ class SuperGemsAnalyzer:
         
         return posts[:limit]
     
-    def generate_static_html(self, super_gems: List[SuperGemAnalysis], output_path: str = "super-gems.html"):
+    def generate_static_html(self, super_gems: List[SuperGemAnalysis], analysis_hours: int = 48, output_path: str = "super-gems.html"):
         """Generate static HTML page with super gems"""
         
         html_template = Template("""
@@ -557,7 +557,7 @@ class SuperGemsAnalyzer:
     
     <div class="container">
         <div class="about">
-            <strong>About:</strong> These are the best hidden gems from the last 48 hours, discovered by 
+            <strong>About:</strong> These are the best hidden gems from the last {{ analysis_hours }} hours, discovered by 
             <a href="https://github.com/DG1001/hn-gems">hn-gems</a> and analyzed by AI for exceptional quality.
             Each post is from a low-karma account (&lt;100) but shows high potential value to the HN community.
             <br><br>
@@ -661,6 +661,7 @@ class SuperGemsAnalyzer:
         
         html_content = html_template.render(
             super_gems=super_gems,
+            analysis_hours=analysis_hours,
             generation_time=datetime.now().strftime("%Y-%m-%d %H:%M UTC")
         )
         
@@ -704,7 +705,7 @@ class SuperGemsAnalyzer:
         
         if super_gems:
             print(f"\nGenerating static HTML with {len(super_gems)} super gems...")
-            self.generate_static_html(super_gems)
+            self.generate_static_html(super_gems, analysis_hours=hours)
             
             # Also save as JSON for potential API use
             with open('super-gems.json', 'w') as f:
