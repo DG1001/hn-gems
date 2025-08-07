@@ -62,6 +62,9 @@ class SuperGemsAnalyzer:
             max_output_tokens=8192,
         )
         
+        # Note: ThinkingConfig for disabling thinking mode requires a newer version 
+        # of google-generativeai library that supports the new genai.Client() API
+        
         # Analysis prompts
         self.main_analysis_prompt = """
         Analyze this Hacker News post for its value to the developer community.
@@ -95,8 +98,7 @@ class SuperGemsAnalyzer:
         - Active development
         - Not just another wrapper around existing APIs
         
-        IMPORTANT: Return your analysis ONLY as a valid JSON object with the following exact structure. 
-        Do not include any explanatory text, thinking steps, or commentary outside the JSON response:
+        IMPORTANT: Return your analysis ONLY as a valid JSON object with the following exact structure:
         {{
             "technical_innovation": 0.0-1.0,
             "problem_significance": 0.0-1.0,
@@ -129,8 +131,7 @@ class SuperGemsAnalyzer:
         4. Architecture: Is it well-designed?
         5. Key Technologies Used
         
-        Return ONLY as a valid JSON object with scores and observations. 
-        Do not include explanatory text or thinking steps outside the JSON response.
+        Return as JSON with scores and observations.
         """
     
     async def fetch_url_content(self, url: str) -> str:
