@@ -556,7 +556,6 @@ class PostCollectionScheduler:
             logger.info(f"Starting super gems analysis for last {analysis_hours} hours...")
             
             # Get proper database path
-            import os
             database_url = self.app.config.get('DATABASE_URL', '')
             if database_url.startswith('sqlite:///'):
                 db_path = database_url.replace('sqlite:///', '')
