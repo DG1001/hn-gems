@@ -54,6 +54,14 @@ class SuperGemsAnalyzer:
         genai.configure(api_key=gemini_api_key)
         self.model = genai.GenerativeModel('gemini-2.5-flash')
         
+        # Configure generation parameters for consistent, focused responses
+        self.generation_config = genai.types.GenerationConfig(
+            temperature=0.1,  # Lower temperature for more consistent, less creative responses
+            top_p=0.95,
+            top_k=40,
+            max_output_tokens=8192,
+        )
+        
         # Analysis prompts
         self.main_analysis_prompt = """
         Analyze this Hacker News post for its value to the developer community.
@@ -87,7 +95,8 @@ class SuperGemsAnalyzer:
         - Active development
         - Not just another wrapper around existing APIs
         
-        IMPORTANT: Return your analysis ONLY as a valid JSON object with the following exact structure:
+        IMPORTANT: Return your analysis ONLY as a valid JSON object with the following exact structure. 
+        Do not include any explanatory text, thinking steps, or commentary outside the JSON response:
         {{
             "technical_innovation": 0.0-1.0,
             "problem_significance": 0.0-1.0,
@@ -120,7 +129,8 @@ class SuperGemsAnalyzer:
         4. Architecture: Is it well-designed?
         5. Key Technologies Used
         
-        Return as JSON with scores and observations.
+        Return ONLY as a valid JSON object with scores and observations. 
+        Do not include explanatory text or thinking steps outside the JSON response.
         """
     
     async def fetch_url_content(self, url: str) -> str:
@@ -227,7 +237,7 @@ class SuperGemsAnalyzer:
             raise
         
         try:
-            response = self.model.generate_content(main_prompt)
+            response = self.model.generate_content(main_prompt, generation_config=self.generation_config)
             
             # Parse LLM response with better error handling
             response_text = response.text.strip()
@@ -283,7 +293,7 @@ class SuperGemsAnalyzer:
                         recent_commits="[Would need API calls for commit history]"
                     )
                     
-                    github_response = self.model.generate_content(github_prompt)
+                    github_response = self.model.generate_content(github_prompt, generation_config=self.generation_config)
                     github_response_text = github_response.text.strip()
                     
                     # Apply same JSON extraction logic as main analysis
