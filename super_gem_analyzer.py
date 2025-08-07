@@ -648,8 +648,7 @@ class SuperGemsAnalyzer:
         
         <div class="generated-time">
             Generated on {{ generation_time }} | 
-            <a href="https://github.com/DG1001/hn-gems">Source Code</a> | 
-            <a href="/">Live Gem Feed</a>
+            <a href="https://github.com/DG1001/hn-gems">Source Code</a>
         </div>
     </div>
 </body>
