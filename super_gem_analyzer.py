@@ -473,7 +473,7 @@ class SuperGemsAnalyzer:
         else:
             return {"symbol": "●", "label": "Basic", "class": "basic"}
 
-    def generate_static_html(self, super_gems: List[SuperGemAnalysis], analysis_hours: int = 48, output_path: str = "super-gems.html"):
+    def generate_static_html(self, super_gems: List[SuperGemAnalysis], analysis_hours: int = 48, output_path: str = "super-gems.html", include_ratings: bool = True):
         """Generate static HTML page with super gems"""
         
         html_template = Template("""
@@ -636,9 +636,11 @@ class SuperGemsAnalyzer:
         
         {% for gem_data in super_gems %}
         <div class="gem">
+            {% if include_ratings %}
             <div class="super-score">
                 <div class="star-rating">{{ gem_data.gem_stars }}</div>
             </div>
+            {% endif %}
             
             <div class="gem-header">
                 <div class="gem-title">
@@ -665,6 +667,7 @@ class SuperGemsAnalyzer:
                 {% endif %}
             </div>
             
+            {% if include_ratings %}
             <div class="gem-scores">
                 <div class="score-item">
                     Technical Innovation<span class="performance-indicator {{ gem_data.technical_innovation_indicator['class'] }}">{{ gem_data.technical_innovation_indicator['symbol'] }}</span>
@@ -682,6 +685,7 @@ class SuperGemsAnalyzer:
                     Uniqueness<span class="performance-indicator {{ gem_data.uniqueness_indicator['class'] }}">{{ gem_data.uniqueness_indicator['symbol'] }}</span>
                 </div>
             </div>
+            {% endif %}
             
             <div class="gem-analysis">
                 <strong>AI Analysis:</strong> {{ gem_data.gem.llm_reasoning }}
@@ -746,7 +750,8 @@ class SuperGemsAnalyzer:
         html_content = html_template.render(
             super_gems=enhanced_gems,
             analysis_hours=analysis_hours,
-            generation_time=datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+            generation_time=datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
+            include_ratings=include_ratings
         )
         
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -789,7 +794,16 @@ class SuperGemsAnalyzer:
         
         if super_gems:
             print(f"\nGenerating static HTML with {len(super_gems)} super gems...")
-            self.generate_static_html(super_gems, analysis_hours=hours)
+            
+            # Generate version with ratings for internal use
+            self.generate_static_html(super_gems, analysis_hours=hours, 
+                                    output_path="super-gems-ratings.html", include_ratings=True)
+            print("Generated super-gems-ratings.html (with ratings)")
+            
+            # Generate clean version without ratings for public
+            self.generate_static_html(super_gems, analysis_hours=hours, 
+                                    output_path="super-gems.html", include_ratings=False)
+            print("Generated super-gems.html (clean, no ratings)")
             
             # Also save as JSON for potential API use
             with open('super-gems.json', 'w') as f:

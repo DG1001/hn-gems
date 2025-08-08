@@ -97,6 +97,11 @@ The Super Gems feature provides comprehensive AI-powered analysis of top hidden 
 - Community Value
 - Uniqueness Score
 
+**Output Formats:**
+- **super-gems.html**: Clean, public-friendly version without ratings (maintains ranking order)
+- **super-gems-ratings.html**: Internal version with full visual scoring system
+- **super-gems.json**: JSON API data with all analysis details
+
 ## Configuration
 
 Configure the application using environment variables:
@@ -184,7 +189,8 @@ flask collection-status         # Check status of all services
 - `GET /api/gems`: Latest hidden gems with filtering
 - `GET /api/gems/hall-of-fame`: Hall of fame entries
 - `GET /super-gems`: AI-curated super gems analysis page with visual scoring
-- `GET /super-gems.html`: Static HTML version of super gems analysis
+- `GET /super-gems.html`: Clean super gems analysis (no ratings, public-friendly)
+- `GET /super-gems-ratings.html`: Super gems analysis with star ratings and indicators
 - `GET /super-gems.json`: JSON API for super gems analysis data
 - `GET /api/stats`: Success metrics and statistics
 - `GET /api/posts/<hn_id>`: Get specific post by HN ID
