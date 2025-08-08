@@ -69,6 +69,12 @@ class SuperGemsAnalyzer:
         self.main_analysis_prompt = """
         Analyze this Hacker News post for its value to the developer community.
         
+        IMPORTANT CONTEXT:
+        - Today's date: {current_date}
+        - My knowledge may have a cutoff date - avoid penalizing posts for claims about recent releases
+        - Focus on technical merit, implementation quality, and developer value rather than factual verification
+        - If a post claims something "impossible" exists, evaluate it based on the described functionality
+        
         Post Title: {title}
         Post URL: {url}
         Post Text: {text}
@@ -97,6 +103,12 @@ class SuperGemsAnalyzer:
         - Open source with permissive license
         - Active development
         - Not just another wrapper around existing APIs
+        
+        EVALUATION GUIDELINES:
+        - Do NOT heavily penalize posts for mentioning new releases or models you're unfamiliar with
+        - Focus on the VALUE PROPOSITION and TECHNICAL APPROACH rather than existence verification
+        - If uncertain about recent releases, give benefit of the doubt and focus on implementation merit
+        - Avoid using phrases like "misleading" or "doesn't exist" for recent technology claims
         
         IMPORTANT: Return your analysis ONLY as a valid JSON object with the following exact structure:
         {{
@@ -227,7 +239,12 @@ class SuperGemsAnalyzer:
             safe_title = post['title'].replace('{', '{{').replace('}', '}}')
             safe_url = post.get('url', 'No URL').replace('{', '{{').replace('}', '}}')
             
+            # Add current date for context
+            from datetime import datetime
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            
             main_prompt = self.main_analysis_prompt.format(
+                current_date=current_date,
                 title=safe_title,
                 url=safe_url,
                 text=safe_post_text,
@@ -365,6 +382,21 @@ class SuperGemsAnalyzer:
             analysis.get('community_value', 0) * 0.20 +
             analysis.get('uniqueness', 0) * 0.10
         )
+        
+        # Check for outdated knowledge penalty patterns
+        reasoning = analysis.get('reasoning', '').lower()
+        factual_penalty_indicators = [
+            'not released', 'doesn\'t exist', 'highly misleading', 
+            'has not released', 'never released', 'doesn\'t actually exist',
+            'not available', 'false claim', 'misleading claim'
+        ]
+        
+        # If AI reasoning contains factual assumption penalties, boost the score
+        has_factual_penalty = any(indicator in reasoning for indicator in factual_penalty_indicators)
+        if has_factual_penalty:
+            # Boost scores that were likely penalized for outdated knowledge
+            print(f"Detected potential outdated knowledge penalty, applying corrective boost")
+            base_score += 0.15  # Compensate for unfair factual penalties
         
         # Bonuses
         if analysis.get('is_open_source'):

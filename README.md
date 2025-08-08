@@ -15,11 +15,13 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
 - **Automated Background Services**: 
   - **Post Collection**: Automatic discovery and analysis with configurable intervals (no Redis required)
   - **Hall of Fame Monitoring**: Tracks gems that achieve success and automatically promotes them (every 6 hours)
-  - **Super Gems Analysis**: AI-powered deep analysis of top gems using Google Gemini (every 6 hours)
+  - **Super Gems Analysis**: AI-powered deep analysis of top gems using Google Gemini with user-friendly visual scoring (every 6 hours)
 - **Hall of Fame**: Automated tracking of discovered gems that later became popular (≥100 points)
 - **Success Metrics**: Real-time monitoring of discovery accuracy and timing
 - **Quality Analysis**: AI-powered content analysis to identify technical depth and originality
 - **Anti-spam Protection**: Advanced filtering to maintain high quality
+- **Visual Scoring System**: User-friendly star ratings and professional dot indicators instead of intimidating numerical scores
+- **Knowledge-Aware AI**: Smart evaluation system that avoids penalizing posts for recent technology releases
 - **Time-based Collection**: Intelligent collection that only processes posts from specified time windows
 
 ## Quick Start
@@ -64,10 +66,36 @@ The system uses the official Hacker News API for all data collection:
 Key components:
 - **Data Collection**: Automatic background collection of HN new posts
 - **Quality Analysis**: AI-powered content evaluation with spam detection
+- **Super Gems Analysis**: Advanced AI evaluation with visual scoring and knowledge-aware assessments
 - **Storage**: SQLite for development, PostgreSQL for production
 - **Web Interface**: Flask application with real-time updates
 - **Background Service**: APScheduler-based in-process collection (no Redis required)
 - **Time-based Processing**: Collects only posts from specified time windows
+
+### Super Gems Analysis System
+
+The Super Gems feature provides comprehensive AI-powered analysis of top hidden gems:
+
+**Visual Scoring System:**
+- ⭐⭐⭐⭐⭐ **Star ratings** for overall quality (instead of intimidating numerical scores)
+- **Professional dot indicators** for detailed metrics:
+  - ●●●● Exceptional (91-100%)
+  - ●●● Excellent (76-90%)
+  - ●● Good (51-75%)
+  - ● Basic (0-50%)
+
+**Smart AI Analysis:**
+- **Knowledge-aware evaluation** that doesn't penalize posts for recent technology releases
+- **Technical merit focus** over factual verification for emerging technologies
+- **Automatic bias correction** for outdated knowledge assumptions
+- **Comprehensive GitHub integration** for code quality assessment
+
+**Analysis Dimensions:**
+- Technical Innovation
+- Problem Significance  
+- Implementation Quality
+- Community Value
+- Uniqueness Score
 
 ## Configuration
 
@@ -93,8 +121,11 @@ Configure the application using environment variables:
 - `KARMA_THRESHOLD=100`: Max author karma for gems
 - `MIN_INTEREST_SCORE=0.3`: Min quality score for gems
 
-### API Keys
+### Super Gems Analysis
 - `GEMINI_API_KEY`: Google Gemini API key for super gems analysis (required for super gems feature)
+- The system automatically applies knowledge-aware evaluation to avoid penalizing recent technology releases
+- Uses temperature=0.1 for consistent, focused AI responses
+- Generates both HTML and JSON output for comprehensive analysis results
 
 ### Logging Settings
 - `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -152,7 +183,9 @@ flask collection-status         # Check status of all services
 ### Core Endpoints
 - `GET /api/gems`: Latest hidden gems with filtering
 - `GET /api/gems/hall-of-fame`: Hall of fame entries
-- `GET /super-gems`: AI-curated super gems analysis page
+- `GET /super-gems`: AI-curated super gems analysis page with visual scoring
+- `GET /super-gems.html`: Static HTML version of super gems analysis
+- `GET /super-gems.json`: JSON API for super gems analysis data
 - `GET /api/stats`: Success metrics and statistics
 - `GET /api/posts/<hn_id>`: Get specific post by HN ID
 - `GET /api/users/<username>`: Get user information
