@@ -417,6 +417,30 @@ class SuperGemsAnalyzer:
         
         return posts[:limit]
     
+    def score_to_stars(self, score: float) -> str:
+        """Convert numerical score to star rating"""
+        if score >= 0.8:
+            return "⭐⭐⭐⭐⭐"
+        elif score >= 0.6:
+            return "⭐⭐⭐⭐"
+        elif score >= 0.4:
+            return "⭐⭐⭐"
+        elif score >= 0.2:
+            return "⭐⭐"
+        else:
+            return "⭐"
+    
+    def score_to_professional_indicator(self, score: float) -> dict:
+        """Convert numerical score to professional performance indicator"""
+        if score >= 0.91:
+            return {"symbol": "●●●●", "label": "Exceptional", "class": "exceptional"}
+        elif score >= 0.76:
+            return {"symbol": "●●●", "label": "Excellent", "class": "excellent"}
+        elif score >= 0.51:
+            return {"symbol": "●●", "label": "Good", "class": "good"}
+        else:
+            return {"symbol": "●", "label": "Basic", "class": "basic"}
+
     def generate_static_html(self, super_gems: List[SuperGemAnalysis], analysis_hours: int = 48, output_path: str = "super-gems.html"):
         """Generate static HTML page with super gems"""
         
@@ -528,11 +552,24 @@ class SuperGemsAnalyzer:
         .badge.oss { background-color: #28a745; }
         .badge.demo { background-color: #17a2b8; }
         .super-score {
-            font-size: 16pt;
-            font-weight: bold;
-            color: #ff6600;
             float: right;
+            text-align: right;
         }
+        .star-rating {
+            font-size: 18pt;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .performance-indicator {
+            font-size: 9pt;
+            font-weight: bold;
+            margin-left: 8px;
+            font-family: monospace;
+        }
+        .performance-indicator.exceptional { color: #28a745; }
+        .performance-indicator.excellent { color: #20c997; }
+        .performance-indicator.good { color: #17a2b8; }
+        .performance-indicator.basic { color: #6c757d; }
         .generated-time {
             text-align: center;
             color: #666;
@@ -565,81 +602,83 @@ class SuperGemsAnalyzer:
             that deserve more attention.
         </div>
         
-        {% for gem in super_gems %}
+        {% for gem_data in super_gems %}
         <div class="gem">
-            <div class="super-score">{{ "%.1f"|format(gem.super_gem_score * 10) }}/10</div>
+            <div class="super-score">
+                <div class="star-rating">{{ gem_data.gem_stars }}</div>
+            </div>
             
             <div class="gem-header">
                 <div class="gem-title">
-                    <a href="{{ gem.url or 'https://news.ycombinator.com/item?id=' + gem.post_id|string }}">
-                        {{ gem.title }}
+                    <a href="{{ gem_data.gem.url or 'https://news.ycombinator.com/item?id=' + gem_data.gem.post_id|string }}">
+                        {{ gem_data.gem.title }}
                     </a>
                 </div>
                 <div class="gem-meta">
-                    by <a href="https://news.ycombinator.com/user?id={{ gem.author }}">{{ gem.author }}</a> 
-                    ({{ gem.author_karma }} karma) | 
-                    <a href="https://news.ycombinator.com/item?id={{ gem.post_id }}">discuss on HN</a>
+                    by <a href="https://news.ycombinator.com/user?id={{ gem_data.gem.author }}">{{ gem_data.gem.author }}</a> 
+                    ({{ gem_data.gem.author_karma }} karma) | 
+                    <a href="https://news.ycombinator.com/item?id={{ gem_data.gem.post_id }}">discuss on HN</a>
                 </div>
             </div>
             
             <div class="badges">
-                {% if gem.is_open_source %}
+                {% if gem_data.gem.is_open_source %}
                 <span class="badge oss">Open Source</span>
                 {% endif %}
-                {% if gem.has_working_demo %}
+                {% if gem_data.gem.has_working_demo %}
                 <span class="badge demo">Working Demo</span>
                 {% endif %}
-                {% if gem.github_stars > 0 %}
-                <span class="badge">★ {{ gem.github_stars }} GitHub stars</span>
+                {% if gem_data.gem.github_stars > 0 %}
+                <span class="badge">★ {{ gem_data.gem.github_stars }} GitHub stars</span>
                 {% endif %}
             </div>
             
             <div class="gem-scores">
-                <div class="score-item {% if gem.technical_innovation > 0.7 %}score-high{% elif gem.technical_innovation > 0.4 %}score-medium{% else %}score-low{% endif %}">
-                    Technical Innovation: {{ "%.0f"|format(gem.technical_innovation * 100) }}%
+                <div class="score-item">
+                    Technical Innovation<span class="performance-indicator {{ gem_data.technical_innovation_indicator['class'] }}">{{ gem_data.technical_innovation_indicator['symbol'] }}</span>
                 </div>
-                <div class="score-item {% if gem.problem_significance > 0.7 %}score-high{% elif gem.problem_significance > 0.4 %}score-medium{% else %}score-low{% endif %}">
-                    Problem Significance: {{ "%.0f"|format(gem.problem_significance * 100) }}%
+                <div class="score-item">
+                    Problem Significance<span class="performance-indicator {{ gem_data.problem_significance_indicator['class'] }}">{{ gem_data.problem_significance_indicator['symbol'] }}</span>
                 </div>
-                <div class="score-item {% if gem.implementation_quality > 0.7 %}score-high{% elif gem.implementation_quality > 0.4 %}score-medium{% else %}score-low{% endif %}">
-                    Implementation: {{ "%.0f"|format(gem.implementation_quality * 100) }}%
+                <div class="score-item">
+                    Implementation<span class="performance-indicator {{ gem_data.implementation_quality_indicator['class'] }}">{{ gem_data.implementation_quality_indicator['symbol'] }}</span>
                 </div>
-                <div class="score-item {% if gem.community_value > 0.7 %}score-high{% elif gem.community_value > 0.4 %}score-medium{% else %}score-low{% endif %}">
-                    Community Value: {{ "%.0f"|format(gem.community_value * 100) }}%
+                <div class="score-item">
+                    Community Value<span class="performance-indicator {{ gem_data.community_value_indicator['class'] }}">{{ gem_data.community_value_indicator['symbol'] }}</span>
                 </div>
-                <div class="score-item {% if gem.uniqueness_score > 0.7 %}score-high{% elif gem.uniqueness_score > 0.4 %}score-medium{% else %}score-low{% endif %}">
-                    Uniqueness: {{ "%.0f"|format(gem.uniqueness_score * 100) }}%
+                <div class="score-item">
+                    Uniqueness<span class="performance-indicator {{ gem_data.uniqueness_indicator['class'] }}">{{ gem_data.uniqueness_indicator['symbol'] }}</span>
                 </div>
             </div>
             
             <div class="gem-analysis">
-                <strong>AI Analysis:</strong> {{ gem.llm_reasoning }}
+                <strong>AI Analysis:</strong> {{ gem_data.gem.llm_reasoning }}
                 
-                {% if gem.key_strengths %}
+                {% if gem_data.gem.key_strengths %}
                 <div class="strengths">
                     <strong>Strengths:</strong>
                     <ul>
-                        {% for strength in gem.key_strengths %}
+                        {% for strength in gem_data.gem.key_strengths %}
                         <li>{{ strength }}</li>
                         {% endfor %}
                     </ul>
                 </div>
                 {% endif %}
                 
-                {% if gem.potential_concerns %}
+                {% if gem_data.gem.potential_concerns %}
                 <div class="concerns">
                     <strong>Considerations:</strong>
                     <ul>
-                        {% for concern in gem.potential_concerns %}
+                        {% for concern in gem_data.gem.potential_concerns %}
                         <li>{{ concern }}</li>
                         {% endfor %}
                     </ul>
                 </div>
                 {% endif %}
                 
-                {% if gem.similar_tools %}
+                {% if gem_data.gem.similar_tools %}
                 <div style="margin-top: 8px;">
-                    <strong>Similar to:</strong> {{ ', '.join(gem.similar_tools) }}
+                    <strong>Similar to:</strong> {{ ', '.join(gem_data.gem.similar_tools) }}
                 </div>
                 {% endif %}
             </div>
@@ -658,8 +697,22 @@ class SuperGemsAnalyzer:
         # Sort by super gem score
         super_gems.sort(key=lambda x: x.super_gem_score, reverse=True)
         
+        # Prepare gems with visual scoring data
+        enhanced_gems = []
+        for gem in super_gems:
+            gem_data = {
+                'gem': gem,
+                'gem_stars': self.score_to_stars(gem.super_gem_score),
+                'technical_innovation_indicator': self.score_to_professional_indicator(gem.technical_innovation),
+                'problem_significance_indicator': self.score_to_professional_indicator(gem.problem_significance),
+                'implementation_quality_indicator': self.score_to_professional_indicator(gem.implementation_quality),
+                'community_value_indicator': self.score_to_professional_indicator(gem.community_value),
+                'uniqueness_indicator': self.score_to_professional_indicator(gem.uniqueness_score)
+            }
+            enhanced_gems.append(gem_data)
+        
         html_content = html_template.render(
-            super_gems=super_gems,
+            super_gems=enhanced_gems,
             analysis_hours=analysis_hours,
             generation_time=datetime.now().strftime("%Y-%m-%d %H:%M UTC")
         )
@@ -710,28 +763,36 @@ class SuperGemsAnalyzer:
             with open('super-gems.json', 'w') as f:
                 json.dump([
                     {
-                        'post_id': g.post_id,
-                        'title': g.title,
-                        'url': g.url,
-                        'author': g.author,
-                        'super_gem_score': g.super_gem_score,
+                        'post_id': gem.post_id,
+                        'title': gem.title,
+                        'url': gem.url,
+                        'author': gem.author,
+                        'super_gem_score': gem.super_gem_score,
+                        'star_rating': self.score_to_stars(gem.super_gem_score),
                         'analysis': {
-                            'technical_innovation': g.technical_innovation,
-                            'problem_significance': g.problem_significance,
-                            'implementation_quality': g.implementation_quality,
-                            'community_value': g.community_value,
-                            'uniqueness': g.uniqueness_score
+                            'technical_innovation': gem.technical_innovation,
+                            'problem_significance': gem.problem_significance,
+                            'implementation_quality': gem.implementation_quality,
+                            'community_value': gem.community_value,
+                            'uniqueness': gem.uniqueness_score
+                        },
+                        'performance_indicators': {
+                            'technical_innovation': self.score_to_professional_indicator(gem.technical_innovation),
+                            'problem_significance': self.score_to_professional_indicator(gem.problem_significance),
+                            'implementation_quality': self.score_to_professional_indicator(gem.implementation_quality),
+                            'community_value': self.score_to_professional_indicator(gem.community_value),
+                            'uniqueness': self.score_to_professional_indicator(gem.uniqueness_score)
                         },
                         'badges': {
-                            'is_open_source': g.is_open_source,
-                            'has_demo': g.has_working_demo,
-                            'github_stars': g.github_stars
+                            'is_open_source': gem.is_open_source,
+                            'has_demo': gem.has_working_demo,
+                            'github_stars': gem.github_stars
                         },
-                        'reasoning': g.llm_reasoning,
-                        'strengths': g.key_strengths,
-                        'concerns': g.potential_concerns
+                        'reasoning': gem.llm_reasoning,
+                        'strengths': gem.key_strengths,
+                        'concerns': gem.potential_concerns
                     }
-                    for g in super_gems
+                    for gem in super_gems
                 ], f, indent=2)
         else:
             print("No posts qualified as super gems - creating placeholder page")
