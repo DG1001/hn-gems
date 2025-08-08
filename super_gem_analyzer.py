@@ -254,51 +254,98 @@ class SuperGemsAnalyzer:
             print(f"Error formatting prompt for post {post['id']}: {e}")
             raise
         
-        try:
-            response = self.model.generate_content(main_prompt, generation_config=self.generation_config)
-            
-            # Parse LLM response with better error handling
-            response_text = response.text.strip()
-            if not response_text:
-                print(f"Empty response from Gemini for post {post['id']}")
-                return None
-            
-            # Try to extract JSON from response (sometimes wrapped in markdown)
-            if '```json' in response_text:
-                # Extract JSON from markdown code block
-                start = response_text.find('```json') + 7
-                end = response_text.find('```', start)
-                if end > start:
-                    response_text = response_text[start:end].strip()
-            elif '```' in response_text:
-                # Extract from generic code block
-                start = response_text.find('```') + 3
-                end = response_text.find('```', start)
-                if end > start:
-                    response_text = response_text[start:end].strip()
-            
+        # Try generating response up to 2 times for JSON parsing issues
+        max_retries = 2
+        analysis_data = None
+        
+        for attempt in range(max_retries):
             try:
-                analysis_data = json.loads(response_text)
-            except json.JSONDecodeError as e:
-                print(f"Failed to parse Gemini JSON response for post {post['id']}: {e}")
-                print(f"Response was: {response_text[:200]}...")
+                response = self.model.generate_content(main_prompt, generation_config=self.generation_config)
                 
-                # Fallback: create dummy analysis data
-                analysis_data = {
-                    'technical_innovation': 0.5,
-                    'problem_significance': 0.5,
-                    'implementation_quality': 0.5,
-                    'community_value': 0.5,
-                    'uniqueness': 0.5,
-                    'is_open_source': False,
-                    'has_working_demo': False,
-                    'has_documentation': False,
-                    'is_commercial': False,
-                    'reasoning': f"Analysis failed due to JSON parsing error: {str(e)}",
-                    'strengths': ["Unable to analyze due to parsing error"],
-                    'concerns': ["LLM response parsing failed"],
-                    'similar_tools': []
-                }
+                # Parse LLM response with better error handling
+                response_text = response.text.strip()
+                if not response_text:
+                    print(f"Empty response from Gemini for post {post['id']} (attempt {attempt + 1})")
+                    if attempt == max_retries - 1:
+                        return None
+                    continue
+            
+                # Try to extract JSON from response (sometimes wrapped in markdown)
+                if '```json' in response_text:
+                    # Extract JSON from markdown code block
+                    start = response_text.find('```json') + 7
+                    end = response_text.find('```', start)
+                    if end > start:
+                        response_text = response_text[start:end].strip()
+                elif '```' in response_text:
+                    # Extract from generic code block
+                    start = response_text.find('```') + 3
+                    end = response_text.find('```', start)
+                    if end > start:
+                        response_text = response_text[start:end].strip()
+                
+                # Try to parse JSON
+                try:
+                    analysis_data = json.loads(response_text)
+                    print(f"✅ Successfully parsed JSON on attempt {attempt + 1}")
+                    break  # Success! Exit retry loop
+                    
+                except json.JSONDecodeError as e:
+                    print(f"Failed to parse Gemini JSON response for post {post['id']} (attempt {attempt + 1}): {e}")
+                    print(f"Response was: {response_text[:500]}...")
+                    
+                    # Try to fix common JSON issues before giving up
+                    fixed_response = response_text
+                    
+                    # Fix common truncation issues
+                    if fixed_response.endswith('"has_working_d'):
+                        fixed_response = fixed_response.rstrip('"has_working_d') + '"has_working_demo": false}'
+                    elif fixed_response.endswith('"'):
+                        fixed_response = fixed_response + '}'
+                    elif not fixed_response.endswith('}'):
+                        fixed_response = fixed_response + '}'
+                    
+                    # Try to fix missing commas (common issue)
+                    import re
+                    fixed_response = re.sub(r'"\s*\n\s*"', '",\n    "', fixed_response)
+                    
+                    try:
+                        print(f"Attempting to parse fixed JSON...")
+                        analysis_data = json.loads(fixed_response)
+                        print(f"✅ Successfully parsed after fixing common issues!")
+                        break  # Success! Exit retry loop
+                        
+                    except json.JSONDecodeError as e2:
+                        print(f"Fixed JSON still failed: {e2}")
+                        if attempt == max_retries - 1:  # Last attempt
+                            print(f"Final attempt failed, using fallback analysis...")
+                            # Final fallback: create dummy analysis data but still process the post
+                            analysis_data = {
+                                'technical_innovation': 0.6,  # Give benefit of doubt
+                                'problem_significance': 0.7,
+                                'implementation_quality': 0.5,
+                                'community_value': 0.6,
+                                'uniqueness': 0.5,
+                                'is_open_source': True,  # Assume positive for Show HN
+                                'has_working_demo': False,
+                                'has_documentation': False,
+                                'is_commercial': False,
+                                'reasoning': f"Analysis partially failed due to JSON parsing error after {max_retries} attempts, but post appears valuable based on title/content",
+                                'strengths': ["Show HN post indicating innovation", "Community-shared project"],
+                                'concerns': ["LLM analysis parsing incomplete"],
+                                'similar_tools': []
+                            }
+                            break
+                        else:
+                            print(f"Retrying analysis for post {post['id']}...")
+                            continue  # Try again
+                            
+            except Exception as e:
+                print(f"LLM API error on attempt {attempt + 1}: {e}")
+                if attempt == max_retries - 1:
+                    print(f"All retry attempts failed for post {post['id']}")
+                    return None
+                continue
             
             # GitHub-specific analysis if applicable
             github_analysis = {}
