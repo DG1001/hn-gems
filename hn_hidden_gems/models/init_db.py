@@ -36,6 +36,19 @@ def main():
     app = create_app()
     
     try:
+        # Ensure database directory exists for SQLite
+        db_url = app.config['DATABASE_URL']
+        if db_url.startswith('sqlite:///'):
+            db_path = db_url.replace('sqlite:///', '')
+            if not db_path.startswith('/'):
+                db_path = os.path.abspath(db_path)
+            
+            # Create directory if it doesn't exist
+            db_dir = os.path.dirname(db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+                logger.info(f"Created database directory: {db_dir}")
+        
         # Initialize database
         init_db(app)
         logger.info("Database initialized successfully!")
