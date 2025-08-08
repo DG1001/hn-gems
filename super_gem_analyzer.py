@@ -346,7 +346,13 @@ class SuperGemsAnalyzer:
                     print(f"All retry attempts failed for post {post['id']}")
                     return None
                 continue
+        
+        # Check if we got valid analysis data
+        if analysis_data is None:
+            print(f"No valid analysis data obtained for post {post['id']}")
+            return None
             
+        try:
             # GitHub-specific analysis if applicable
             github_analysis = {}
             if github_data:
