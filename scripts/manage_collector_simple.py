@@ -16,11 +16,14 @@ sys.path.insert(0, str(project_root))
 def get_config():
     """Get current configuration."""
     interval = int(os.environ.get('POST_COLLECTION_INTERVAL_MINUTES', 5))
+    port = int(os.environ.get('FLASK_PORT', 5000))
     return {
         'interval': interval,
         'enabled': interval > 0,
         'batch_size': int(os.environ.get('POST_COLLECTION_BATCH_SIZE', 25)),
         'max_stories': int(os.environ.get('POST_COLLECTION_MAX_STORIES', 500)),
+        'port': port,
+        'base_url': f'http://127.0.0.1:{port}',
     }
 
 def status():
@@ -34,6 +37,7 @@ def status():
     print(f"  Interval: {config['interval']} minutes")
     print(f"  Batch size: {config['batch_size']} posts")
     print(f"  Max stories: {config['max_stories']}")
+    print(f"  Flask port: {config['port']}")
     print()
     
     print("Service Details:")
@@ -46,7 +50,7 @@ def status():
     # Try to get collection status from API if Flask app is running
     try:
         import requests
-        response = requests.get('http://127.0.0.1:5000/api/collection/status', timeout=5)
+        response = requests.get(f'{config["base_url"]}/api/collection/status', timeout=5)
         if response.status_code == 200:
             api_status = response.json()
             print("Live Service Status (from running Flask app):")
@@ -74,7 +78,8 @@ def status():
             
     except Exception as e:
         print("⚠️ Flask app not running or not accessible")
-        print("   Start the Flask app to see live status: python app.py")
+        print(f"   Start the Flask app to see live status: python app.py")
+        print(f"   Make sure app is running on port {config['port']} or set FLASK_PORT environment variable")
 
 def manual_collect(minutes_back=60):
     """Manually trigger collection via API."""
@@ -88,7 +93,7 @@ def manual_collect(minutes_back=60):
     
     try:
         import requests
-        response = requests.post('http://127.0.0.1:5000/api/collection/trigger', 
+        response = requests.post(f'{config["base_url"]}/api/collection/trigger', 
                                json={'minutes_back': minutes_back}, 
                                timeout=10)
         
@@ -105,6 +110,7 @@ def manual_collect(minutes_back=60):
     except Exception as e:
         print(f"❌ Failed to trigger collection: {e}")
         print("   Make sure the Flask app is running: python app.py")
+        print(f"   and accessible on port {config['port']} (set FLASK_PORT if different)")
         return False
 
 def start():
