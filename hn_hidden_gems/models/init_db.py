@@ -36,32 +36,20 @@ def main():
     app = create_app()
     
     try:
-        # Ensure database directory exists for SQLite
-        db_url = app.config['DATABASE_URL']
-        if db_url.startswith('sqlite:///'):
-            db_path = db_url.replace('sqlite:///', '')
-            if not db_path.startswith('/'):
-                db_path = os.path.abspath(db_path)
+        with app.app_context():
+            # Initialize database
+            init_db(app)
+            logger.info("Database initialized successfully!")
             
-            # Create directory if it doesn't exist
-            db_dir = os.path.dirname(db_path)
-            if db_dir and not os.path.exists(db_dir):
-                os.makedirs(db_dir, exist_ok=True)
-                logger.info(f"Created database directory: {db_dir}")
-        
-        # Initialize database
-        init_db(app)
-        logger.info("Database initialized successfully!")
-        
-        # Print database location
-        db_url = app.config['DATABASE_URL']
-        if db_url.startswith('sqlite:///'):
-            db_path = db_url.replace('sqlite:///', '')
-            if not db_path.startswith('/'):
-                db_path = os.path.abspath(db_path)
-            logger.info(f"SQLite database created at: {db_path}")
-        else:
-            logger.info(f"Database URL: {db_url}")
+            # Print database location
+            db_url = app.config['SQLALCHEMY_DATABASE_URI']
+            if db_url.startswith('sqlite:///'):
+                db_path = db_url.replace('sqlite:///', '')
+                if not db_path.startswith('/'):
+                    db_path = os.path.abspath(db_path)
+                logger.info(f"SQLite database created at: {db_path}")
+            else:
+                logger.info(f"Database URL: {db_url}")
             
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
