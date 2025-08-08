@@ -17,7 +17,11 @@ logger = setup_logger(__name__)
 
 def create_app():
     """Create Flask app for database initialization."""
-    app = Flask(__name__)
+    # Set the instance path to the project root's instance directory
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    instance_path = os.path.join(project_root, 'instance')
+    
+    app = Flask(__name__, instance_path=instance_path)
     
     # Load configuration
     config_name = os.environ.get('FLASK_ENV', 'development')

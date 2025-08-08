@@ -7,7 +7,7 @@ class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
-    DATABASE_URL = os.environ.get('DATABASE_URL') or 'sqlite:///instance/hn_hidden_gems.db'
+    DATABASE_URL = os.environ.get('DATABASE_URL') or 'sqlite:///hn_hidden_gems.db'
     
     # API Keys
     GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
