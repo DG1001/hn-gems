@@ -56,7 +56,7 @@ class SuperGemsAnalyzer:
     def __init__(self, gemini_api_key: str, db_path: str = "instance/hn_hidden_gems.db"):
         self.db_path = db_path
         genai.configure(api_key=gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
         
         # Configure generation parameters for consistent, focused responses
         self.generation_config = genai.types.GenerationConfig(
@@ -941,8 +941,8 @@ async def scheduled_super_gems_analysis():
     
     # Get config from environment or config file
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-    ANALYSIS_HOURS = int(os.getenv('ANALYSIS_HOURS', '48'))
-    TOP_N_GEMS = int(os.getenv('TOP_N_GEMS', '5'))
+    ANALYSIS_HOURS = int(os.getenv('SUPER_GEMS_ANALYSIS_HOURS', '48'))
+    TOP_N_GEMS = int(os.getenv('SUPER_GEMS_TOP_N', '5'))
     
     analyzer = SuperGemsAnalyzer(
         gemini_api_key=GEMINI_API_KEY,
