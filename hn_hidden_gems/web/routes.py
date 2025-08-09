@@ -32,7 +32,7 @@ def about():
 @main.route('/super-gems')
 def super_gems():
     """Serve super gems analysis page."""
-    super_gems_file = 'super-gems.html'
+    super_gems_file = 'super-gems-ratings.html'
     if os.path.exists(super_gems_file):
         return send_file(super_gems_file)
     else:
