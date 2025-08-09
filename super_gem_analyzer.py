@@ -231,7 +231,7 @@ class SuperGemsAnalyzer:
         
         try:
             # Check for GitHub repo
-            github_url = self.extract_github_url(post_text + ' ' + post.get('url', ''), post.get('url', ''))
+            github_url = self.extract_github_url((post_text or '') + ' ' + (post.get('url') or ''), post.get('url', ''))
             github_data = {}
             if github_url:
                 github_data = await self.analyze_github_repo(github_url) or {}
@@ -241,9 +241,9 @@ class SuperGemsAnalyzer:
         
         try:
             # Main LLM analysis - escape any curly braces in the post text to avoid format conflicts
-            safe_post_text = post_text[:2000].replace('{', '{{').replace('}', '}}')
-            safe_title = post['title'].replace('{', '{{').replace('}', '}}')
-            safe_url = post.get('url', 'No URL').replace('{', '{{').replace('}', '}}')
+            safe_post_text = (post_text or '')[:2000].replace('{', '{{').replace('}', '}}')
+            safe_title = (post.get('title') or 'No Title').replace('{', '{{').replace('}', '}}')
+            safe_url = (post.get('url') or 'No URL').replace('{', '{{').replace('}', '}}')
             
             # Add current date for context
             from datetime import datetime
