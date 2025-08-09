@@ -221,11 +221,13 @@ class SuperGemsAnalyzer:
             post_text = post.get('text', '')
             if not post_text and post.get('url'):
                 # Try to fetch content from URL
-                post_text = await self.fetch_url_content(post['url'])
+                post_text = await self.fetch_url_content(post['url']) or ''
                 post_text = post_text[:3000]  # Limit to first 3k chars
+            # Ensure post_text is never None
+            post_text = post_text or ''
         except Exception as e:
             print(f"Error preparing post content for {post['id']}: {e}")
-            raise
+            post_text = ''  # Set default value on error
         
         try:
             # Check for GitHub repo
