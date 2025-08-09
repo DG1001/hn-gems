@@ -206,8 +206,8 @@ class SuperGemsAnalyzer:
                             'updated_at': repo_data.get('updated_at'),
                             'description': repo_data.get('description', ''),
                             'language': repo_data.get('language', ''),
-                            'readme_content': readme_content[:5000],  # First 5k chars
-                            'license': repo_data.get('license', {}).get('name', 'Unknown')
+                            'readme_content': (readme_content or '')[:5000],  # First 5k chars
+                            'license': (repo_data.get('license') or {}).get('name', 'Unknown')
                         }
         except Exception as e:
             print(f"Error analyzing GitHub repo: {e}")
