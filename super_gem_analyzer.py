@@ -232,7 +232,7 @@ class SuperGemsAnalyzer:
             github_url = self.extract_github_url(post_text + ' ' + post.get('url', ''), post.get('url', ''))
             github_data = {}
             if github_url:
-                github_data = await self.analyze_github_repo(github_url)
+                github_data = await self.analyze_github_repo(github_url) or {}
         except Exception as e:
             print(f"Error in GitHub analysis for post {post['id']}: {e}")
             github_data = {}
@@ -363,7 +363,7 @@ class SuperGemsAnalyzer:
                 try:
                     github_prompt = self.github_analysis_prompt.format(
                         repo_url=github_url,
-                        readme=github_data.get('readme_content', ''),
+                        readme=(github_data or {}).get('readme_content', ''),
                         file_structure="[Would need repo clone for full analysis]",
                         recent_commits="[Would need API calls for commit history]"
                     )
@@ -416,7 +416,7 @@ class SuperGemsAnalyzer:
                 'key_strengths': analysis_data.get('strengths', []),
                 'potential_concerns': analysis_data.get('concerns', []),
                 'similar_tools': analysis_data.get('similar_tools', []),
-                'github_stars': github_data.get('stars', 0),
+                'github_stars': (github_data or {}).get('stars', 0),
                 'code_quality_score': github_analysis.get('code_quality', 0),
                 'readme_quality': github_analysis.get('readme_quality', 0)
             }
@@ -460,7 +460,7 @@ class SuperGemsAnalyzer:
             base_score += 0.1
         if analysis.get('has_working_demo'):
             base_score += 0.05
-        if github_data.get('stars', 0) > 10:  # Early stars are a good sign
+        if (github_data or {}).get('stars', 0) > 10:  # Early stars are a good sign
             base_score += 0.05
             
         # Penalties
