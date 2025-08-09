@@ -10,6 +10,10 @@ from jinja2 import Template
 import subprocess
 import re
 from urllib.parse import urlparse
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 @dataclass
 class SuperGemAnalysis:
