@@ -809,7 +809,7 @@ class SuperGemsAnalyzer:
         html_content = html_template.render(
             super_gems=enhanced_gems,
             analysis_hours=analysis_hours,
-            generation_time=datetime.now().strftime("%Y-%m-%d %H:%M UTC"),
+            generation_time=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
             include_ratings=include_ratings
         )
         
