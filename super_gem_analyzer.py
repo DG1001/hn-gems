@@ -19,6 +19,7 @@ load_dotenv()
 class SuperGemAnalysis:
     """Detailed analysis of a potential super gem"""
     post_id: int
+    post_hn_id: int
     title: str
     url: str
     author: str
@@ -399,6 +400,7 @@ class SuperGemsAnalyzer:
             # Combine all analysis and create SuperGemAnalysis object
             params = {
                 'post_id': post['id'],
+                'post_hn_id': post['hn_id'],
                 'title': post['title'],
                 'url': post.get('url', ''),
                 'author': post.get('by') or post.get('author', 'Unknown'),
@@ -703,14 +705,14 @@ class SuperGemsAnalyzer:
             
             <div class="gem-header">
                 <div class="gem-title">
-                    <a href="{{ gem_data.gem.url or 'https://news.ycombinator.com/item?id=' + gem_data.gem.post_id|string }}">
+                    <a href="{{ gem_data.gem.url or 'https://news.ycombinator.com/item?id=' + gem_data.gem.post_hn_id|string }}">
                         {{ gem_data.gem.title }}
                     </a>
                 </div>
                 <div class="gem-meta">
                     by <a href="https://news.ycombinator.com/user?id={{ gem_data.gem.author }}">{{ gem_data.gem.author }}</a> 
                     ({{ gem_data.gem.author_karma }} karma) | 
-                    <a href="https://news.ycombinator.com/item?id={{ gem_data.gem.post_id }}">discuss on HN</a>
+                    <a href="https://news.ycombinator.com/item?id={{ gem_data.gem.post_hn_id }}">discuss on HN</a>
                 </div>
             </div>
             
@@ -869,6 +871,7 @@ class SuperGemsAnalyzer:
                 json.dump([
                     {
                         'post_id': gem.post_id,
+                        'post_hn_id': gem.post_hn_id,
                         'title': gem.title,
                         'url': gem.url,
                         'author': gem.author,
