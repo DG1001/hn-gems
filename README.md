@@ -72,6 +72,14 @@ Key components:
 - **Background Service**: APScheduler-based in-process collection (no Redis required)
 - **Time-based Processing**: Collects only posts from specified time windows
 
+## Documentation
+
+For detailed technical documentation on the algorithms:
+
+📖 **[Hidden Gems Detection Algorithm](docs/HIDDEN_GEMS_DETECTION.md)** - Complete documentation of the initial quality analysis system that identifies hidden gems from low-karma authors, including scoring methodology, spam detection, and Live Feed generation.
+
+🔬 **[Super Gems Analysis Algorithm](docs/SUPER_GEMS_ALGORITHM.md)** - In-depth explanation of the advanced LLM-powered analysis system, including prompt engineering, scoring criteria, and quality assurance measures.
+
 ### Super Gems Analysis System
 
 The Super Gems feature provides comprehensive AI-powered analysis of top hidden gems:
