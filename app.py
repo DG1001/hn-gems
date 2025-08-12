@@ -747,6 +747,231 @@ def create_app(config_name=None):
         except Exception as e:
             logger.error(f"Super gems analysis failed: {e}")
     
+    @app.cli.command()
+    def find_duplicates():
+        """Find and report duplicate posts in the database."""
+        from hn_hidden_gems.models import Post
+        
+        try:
+            logger.info("Searching for duplicate posts...")
+            # Start with a smaller batch for performance
+            duplicates = Post.find_duplicates(limit=500)
+            
+            if not duplicates:
+                logger.info("No duplicates found.")
+                return
+            
+            logger.info(f"Found {len(duplicates)} duplicate pairs:")
+            
+            for i, (post1, post2, similarity) in enumerate(duplicates, 1):
+                logger.info(f"\n--- Duplicate Pair {i} ---")
+                logger.info(f"Post 1: HN ID {post1['hn_id']} by {post1['author']}")
+                logger.info(f"  Title: {post1['title'][:60]}...")
+                logger.info(f"  URL: {post1.get('url', 'No URL')[:60]}...")
+                
+                logger.info(f"Post 2: HN ID {post2['hn_id']} by {post2['author']}")
+                logger.info(f"  Title: {post2['title'][:60]}...")
+                logger.info(f"  URL: {post2.get('url', 'No URL')[:60]}...")
+                
+                logger.info(f"Similarity: URL={similarity.get('url_similarity', 0):.2f}, "
+                           f"Title={similarity.get('title_similarity', 0):.2f}, "
+                           f"Content={similarity.get('content_similarity', 0):.2f}")
+                logger.info(f"Confidence: {similarity.get('confidence_score', 0):.2f}")
+                logger.info(f"Reasons: {', '.join(similarity.get('duplicate_reasons', []))}")
+                
+                if i >= 10:  # Limit output for readability
+                    logger.info(f"\n... and {len(duplicates) - 10} more duplicate pairs")
+                    break
+            
+        except Exception as e:
+            logger.error(f"Failed to find duplicates: {e}")
+    
+    @app.cli.command()
+    def clean_duplicates():
+        """Automatically clean up duplicate posts by marking lower-quality ones as spam."""
+        from hn_hidden_gems.models import Post
+        from hn_hidden_gems.utils.duplicate_detector import DuplicateDetector
+        
+        try:
+            logger.info("Finding and cleaning duplicate posts...")
+            
+            # Get all duplicates
+            duplicates = Post.find_duplicates(limit=2000)
+            
+            if not duplicates:
+                logger.info("No duplicates found to clean.")
+                return
+            
+            detector = DuplicateDetector()
+            cleaned_count = 0
+            
+            for post1, post2, similarity in duplicates:
+                try:
+                    # Get recommendation for what to do
+                    recommendation = detector.get_duplicate_action_recommendation(post1, post2, similarity)
+                    
+                    if recommendation['action'] in ['remove_lower_quality', 'flag_spam_behavior']:
+                        remove_post = recommendation['remove_post']
+                        keep_post = recommendation['keep_post']
+                        
+                        # Mark the lower quality post as duplicate/spam
+                        success = Post.mark_as_duplicate(
+                            remove_post['id'], 
+                            keep_post['id'],
+                            f"Duplicate of HN ID {keep_post['hn_id']}: {', '.join(recommendation['reasoning'])}"
+                        )
+                        
+                        if success:
+                            cleaned_count += 1
+                            logger.info(f"Marked HN ID {remove_post['hn_id']} as duplicate of {keep_post['hn_id']}")
+                            logger.info(f"  Reason: {', '.join(recommendation['reasoning'])}")
+                        
+                except Exception as e:
+                    logger.error(f"Error processing duplicate pair: {e}")
+                    continue
+            
+            logger.info(f"Cleaning completed. Marked {cleaned_count} posts as duplicates/spam.")
+            
+        except Exception as e:
+            logger.error(f"Failed to clean duplicates: {e}")
+    
+    @app.cli.command()
+    def check_post_duplicates():
+        """Interactively check a specific post for duplicates."""
+        from hn_hidden_gems.models import Post
+        
+        try:
+            hn_id = input("Enter HN ID to check for duplicates: ").strip()
+            if not hn_id.isdigit():
+                logger.error("Please enter a valid HN ID (number)")
+                return
+            
+            post = Post.find_by_hn_id(int(hn_id))
+            if not post:
+                logger.error(f"Post with HN ID {hn_id} not found in database")
+                return
+            
+            logger.info(f"Checking duplicates for post: {post.title[:60]}...")
+            
+            candidates = Post.get_duplicate_candidates(post)
+            
+            if not candidates:
+                logger.info("No duplicate candidates found.")
+                return
+            
+            logger.info(f"Found {len(candidates)} potential duplicates:")
+            
+            for i, candidate_info in enumerate(candidates, 1):
+                candidate = candidate_info['post']
+                similarity = candidate_info['similarity']
+                recommendation = candidate_info['recommendation']
+                
+                logger.info(f"\n--- Candidate {i} ---")
+                logger.info(f"HN ID: {candidate.hn_id} by {candidate.author}")
+                logger.info(f"Title: {candidate.title[:60]}...")
+                logger.info(f"URL: {candidate.url[:60] if candidate.url else 'No URL'}...")
+                logger.info(f"Similarity: URL={similarity.get('url_similarity', 0):.2f}, "
+                           f"Title={similarity.get('title_similarity', 0):.2f}, "
+                           f"Content={similarity.get('content_similarity', 0):.2f}")
+                logger.info(f"Confidence: {similarity.get('confidence_score', 0):.2f}")
+                logger.info(f"Recommendation: {recommendation['action']}")
+                logger.info(f"Reasoning: {', '.join(recommendation['reasoning'])}")
+                
+                # Ask user what to do
+                action = input(f"Mark HN ID {candidate.hn_id} as duplicate? (y/n/s=skip all): ").lower()
+                
+                if action == 's':
+                    break
+                elif action == 'y':
+                    success = Post.mark_as_duplicate(candidate.id, post.id, 
+                                                   f"Manual duplicate marking: {', '.join(recommendation['reasoning'])}")
+                    if success:
+                        logger.info(f"✅ Marked HN ID {candidate.hn_id} as duplicate")
+                    else:
+                        logger.error(f"❌ Failed to mark HN ID {candidate.hn_id} as duplicate")
+                
+        except KeyboardInterrupt:
+            logger.info("Duplicate checking cancelled by user")
+        except Exception as e:
+            logger.error(f"Failed to check duplicates: {e}")
+    
+    @app.cli.command()
+    def cleanup_existing_duplicates():
+        """Find and mark existing duplicate posts in the database as spam."""
+        from hn_hidden_gems.models import Post
+        from hn_hidden_gems.utils.duplicate_detector import DuplicateDetector
+        import sqlite3
+        
+        try:
+            logger.info("Finding and cleaning up existing duplicates...")
+            
+            # Use database query to find obvious URL duplicates first
+            # The data is actually in instance/hn_hidden_gems.db
+            db_path = 'instance/hn_hidden_gems.db'
+            logger.info(f"Using database path: {db_path}")
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            
+            # Find posts with identical URLs
+            url_duplicates_query = """
+            SELECT url, COUNT(*) as count, GROUP_CONCAT(hn_id) as hn_ids
+            FROM posts 
+            WHERE url IS NOT NULL AND url != '' 
+            AND is_spam = 0
+            GROUP BY url 
+            HAVING count > 1
+            ORDER BY count DESC
+            """
+            
+            cursor.execute(url_duplicates_query)
+            url_duplicates = cursor.fetchall()
+            
+            logger.info(f"Found {len(url_duplicates)} URLs with multiple posts:")
+            
+            cleaned_count = 0
+            detector = DuplicateDetector()
+            
+            for url, count, hn_ids_str in url_duplicates:
+                hn_ids = [int(x) for x in hn_ids_str.split(',')]
+                logger.info(f"\nURL: {url}")
+                logger.info(f"  Posts: {hn_ids} ({count} total)")
+                
+                # Get the posts for this URL
+                posts_query = """
+                SELECT id, hn_id, title, author, author_karma, score, created_at, hn_created_at
+                FROM posts WHERE url = ? AND is_spam = 0
+                ORDER BY hn_id ASC
+                """
+                cursor.execute(posts_query, (url,))
+                posts = cursor.fetchall()
+                
+                if len(posts) > 1:
+                    # Keep the first post (lowest HN ID), mark others as duplicates
+                    keep_post = posts[0]
+                    duplicate_posts = posts[1:]
+                    
+                    logger.info(f"  Keeping: HN ID {keep_post[1]} by {keep_post[3]}")
+                    
+                    for dup_post in duplicate_posts:
+                        # Mark as spam/duplicate
+                        update_query = """
+                        UPDATE posts 
+                        SET is_spam = 1, is_hidden_gem = 0 
+                        WHERE id = ?
+                        """
+                        cursor.execute(update_query, (dup_post[0],))
+                        cleaned_count += 1
+                        logger.info(f"  Marked duplicate: HN ID {dup_post[1]} by {dup_post[3]}")
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"\nCleanup completed. Marked {cleaned_count} existing posts as duplicates.")
+            
+        except Exception as e:
+            logger.error(f"Failed to cleanup duplicates: {e}")
+    
     # Auto-start scheduler if enabled
     def start_background_scheduler():
         """Start scheduler when Flask app starts."""

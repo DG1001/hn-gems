@@ -359,6 +359,19 @@ class PostCollectionScheduler:
                     post.is_hidden_gem = is_gem
                     post.is_spam = quality_scores['spam_likelihood'] >= 0.7
                     
+                    # Check for duplicates before committing
+                    duplicate_candidates = Post.get_duplicate_candidates(post)
+                    if duplicate_candidates:
+                        # This appears to be a duplicate
+                        logger.info(f"Post {story_id} appears to be a duplicate, marking as spam")
+                        post.is_spam = True
+                        post.is_hidden_gem = False
+                        
+                        # Log the duplicate detection
+                        best_match = duplicate_candidates[0]
+                        logger.info(f"  Duplicate of HN ID {best_match['post'].hn_id} (confidence: {best_match['similarity']['confidence_score']:.2f})")
+                        logger.info(f"  Reasons: {', '.join(best_match['similarity']['duplicate_reasons'])}")
+                    
                     # Add to session
                     db.session.add(post)
                     db.session.add(quality_score)

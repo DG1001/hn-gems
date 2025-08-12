@@ -165,3 +165,141 @@ class Post(db.Model):
             'hall_of_fame_count': hall_of_fame_count,
             'success_rate': (hall_of_fame_count / hidden_gems * 100) if hidden_gems > 0 else 0
         }
+    
+    @classmethod
+    def find_duplicates(cls, limit=1000):
+        """Find potential duplicate posts using the duplicate detection system."""
+        from hn_hidden_gems.utils.duplicate_detector import DuplicateDetector
+        
+        # Get recent posts for duplicate detection
+        recent_posts = cls.query.order_by(cls.created_at.desc()).limit(limit).all()
+        
+        # Convert to format expected by duplicate detector
+        post_data = []
+        for post in recent_posts:
+            post_data.append({
+                'id': post.id,
+                'hn_id': post.hn_id,
+                'title': post.title,
+                'url': post.url,
+                'text': post.text,
+                'author': post.author,
+                'score': post.score,
+                'current_hn_score': post.current_hn_score,
+                'hn_created_at': post.hn_created_at,
+                'created_at': post.created_at,
+                'is_hidden_gem': post.is_hidden_gem
+            })
+        
+        # Find duplicates
+        detector = DuplicateDetector()
+        duplicates = detector.find_duplicates_in_list(post_data)
+        
+        return duplicates
+    
+    @classmethod
+    def mark_as_duplicate(cls, post_id: int, duplicate_of_id: int, reason: str = None):
+        """
+        Mark a post as a duplicate of another post.
+        
+        Args:
+            post_id: ID of the post to mark as duplicate
+            duplicate_of_id: ID of the original post
+            reason: Optional reason for marking as duplicate
+        """
+        post = cls.query.get(post_id)
+        if post:
+            post.is_spam = True  # Mark as spam since it's a duplicate
+            post.is_hidden_gem = False  # Remove gem status if it was a gem
+            
+            # Add a note about being a duplicate (could extend model to have a duplicate_reason field)
+            # For now, we'll use the existing spam classification
+            db.session.add(post)
+            db.session.commit()
+            
+            return True
+        return False
+    
+    @classmethod
+    def get_duplicate_candidates(cls, post):
+        """
+        Find potential duplicates for a given post.
+        
+        Args:
+            post: Post object to find duplicates for
+            
+        Returns:
+            List of potential duplicate posts with similarity scores
+        """
+        from hn_hidden_gems.utils.duplicate_detector import DuplicateDetector
+        
+        detector = DuplicateDetector()
+        
+        # Get other posts by same author first (most likely to be duplicates)
+        same_author_posts = cls.query.filter(
+            cls.author == post.author,
+            cls.id != post.id
+        ).all()
+        
+        # Get posts with similar URLs if post has URL
+        similar_url_posts = []
+        if post.url:
+            # Get posts with same domain
+            domain = detector.normalize_url(post.url).split('/')[2] if '://' in detector.normalize_url(post.url) else ''
+            if domain:
+                similar_url_posts = cls.query.filter(
+                    cls.url.like(f'%{domain}%'),
+                    cls.id != post.id
+                ).limit(20).all()
+        
+        # Get recent posts for broader comparison
+        recent_posts = cls.query.filter(
+            cls.id != post.id,
+            cls.created_at >= datetime.utcnow() - timedelta(days=7)
+        ).order_by(cls.created_at.desc()).limit(100).all()
+        
+        # Combine all candidate posts (remove duplicates)
+        all_candidates = list({p.id: p for p in (same_author_posts + similar_url_posts + recent_posts)}.values())
+        
+        # Check each candidate for duplicates
+        candidates_with_scores = []
+        post_data = {
+            'id': post.id,
+            'hn_id': post.hn_id,
+            'title': post.title,
+            'url': post.url,
+            'text': post.text,
+            'author': post.author,
+            'score': post.score,
+            'current_hn_score': post.current_hn_score,
+            'hn_created_at': post.hn_created_at,
+            'created_at': post.created_at
+        }
+        
+        for candidate in all_candidates:
+            candidate_data = {
+                'id': candidate.id,
+                'hn_id': candidate.hn_id,
+                'title': candidate.title,
+                'url': candidate.url,
+                'text': candidate.text,
+                'author': candidate.author,
+                'score': candidate.score,
+                'current_hn_score': candidate.current_hn_score,
+                'hn_created_at': candidate.hn_created_at,
+                'created_at': candidate.created_at
+            }
+            
+            is_duplicate, similarity = detector.is_duplicate(post_data, candidate_data)
+            if is_duplicate:
+                recommendation = detector.get_duplicate_action_recommendation(post_data, candidate_data, similarity)
+                candidates_with_scores.append({
+                    'post': candidate,
+                    'similarity': similarity,
+                    'recommendation': recommendation
+                })
+        
+        # Sort by confidence score
+        candidates_with_scores.sort(key=lambda x: x['similarity']['confidence_score'], reverse=True)
+        
+        return candidates_with_scores

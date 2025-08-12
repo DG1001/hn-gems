@@ -476,7 +476,7 @@ class SuperGemsAnalyzer:
         return min(max(base_score, 0), 1)  # Clamp to 0-1
     
     async def get_top_gems(self, hours: int = 48, limit: int = 10) -> List[Dict]:
-        """Get top gems from the last N hours from database"""
+        """Get top gems from the last N hours from database, filtering out duplicates"""
         import sqlite3
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -485,6 +485,7 @@ class SuperGemsAnalyzer:
         
         # Query for top gems using the actual database schema
         # Filter by HN post time (hn_created_at) not our discovery time (created_at)
+        # Also exclude posts marked as spam (which includes duplicates)
         query = """
         SELECT 
             p.id, p.hn_id, p.title, p.url, p.text, p.author, p.author_karma,
@@ -498,17 +499,104 @@ class SuperGemsAnalyzer:
         AND qs.overall_interest > 0.4
         AND p.author_karma < 100
         AND p.is_hidden_gem = 1
+        AND p.is_spam = 0
         ORDER BY qs.overall_interest DESC
         LIMIT ?
         """
         
         cursor = conn.cursor()
-        cursor.execute(query, (cutoff_time, limit * 2))  # Get extra in case some fail
+        cursor.execute(query, (cutoff_time, limit * 3))  # Get extra in case some need filtering
         
         posts = [dict(row) for row in cursor.fetchall()]
         conn.close()
         
-        return posts[:limit]
+        # Additional duplicate filtering using our duplicate detection system
+        print(f"Applying duplicate detection to {len(posts)} candidate posts...")
+        filtered_posts = self.filter_duplicates(posts)
+        
+        print(f"After duplicate filtering: {len(filtered_posts)} unique posts")
+        return filtered_posts[:limit]
+    
+    def filter_duplicates(self, posts: List[Dict]) -> List[Dict]:
+        """Filter out duplicate posts using the duplicate detection system"""
+        try:
+            # Import our duplicate detector
+            import sys
+            import os
+            
+            # Add the project root to Python path
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
+            
+            from hn_hidden_gems.utils.duplicate_detector import DuplicateDetector
+            
+            detector = DuplicateDetector()
+            
+            # Group posts by URL first for quick duplicate detection
+            url_groups = {}
+            posts_by_url = {}
+            unique_posts = []
+            seen_urls = set()
+            
+            for post in posts:
+                post_url = post.get('url', '')
+                if post_url:
+                    normalized_url = detector.normalize_url(post_url)
+                    if normalized_url in seen_urls:
+                        print(f"Filtering duplicate URL: {post['title'][:50]}... (HN ID {post['hn_id']})")
+                        continue
+                    seen_urls.add(normalized_url)
+                
+                unique_posts.append(post)
+            
+            print(f"URL-based filtering: {len(posts)} -> {len(unique_posts)} posts")
+            
+            # Now do content-based duplicate detection on remaining posts
+            if len(unique_posts) > 1:
+                duplicates = detector.find_duplicates_in_list(unique_posts)
+                
+                if duplicates:
+                    # Track posts to remove (keep the higher quality one from each duplicate pair)
+                    posts_to_remove = set()
+                    
+                    for post1, post2, similarity in duplicates:
+                        print(f"Found content duplicates:")
+                        print(f"  Post 1: HN ID {post1['hn_id']} - {post1['title'][:40]}... (score: {post1.get('gem_score', 0):.2f})")
+                        print(f"  Post 2: HN ID {post2['hn_id']} - {post2['title'][:40]}... (score: {post2.get('gem_score', 0):.2f})")
+                        print(f"  Similarity: {similarity['confidence_score']:.2f}")
+                        print(f"  Reasons: {', '.join(similarity['duplicate_reasons'])}")
+                        
+                        # Keep the post with higher gem score
+                        score1 = post1.get('gem_score', 0)
+                        score2 = post2.get('gem_score', 0)
+                        
+                        if score1 > score2:
+                            posts_to_remove.add(post2['hn_id'])
+                            print(f"  -> Keeping post {post1['hn_id']} (higher score)")
+                        elif score2 > score1:
+                            posts_to_remove.add(post1['hn_id'])
+                            print(f"  -> Keeping post {post2['hn_id']} (higher score)")
+                        else:
+                            # Same score, keep the earlier post (lower HN ID)
+                            if post1['hn_id'] < post2['hn_id']:
+                                posts_to_remove.add(post2['hn_id'])
+                                print(f"  -> Keeping post {post1['hn_id']} (earlier post)")
+                            else:
+                                posts_to_remove.add(post1['hn_id'])
+                                print(f"  -> Keeping post {post2['hn_id']} (earlier post)")
+                    
+                    # Remove the duplicate posts
+                    unique_posts = [p for p in unique_posts if p['hn_id'] not in posts_to_remove]
+                    print(f"Content-based filtering: removed {len(posts_to_remove)} duplicate posts")
+            
+            print(f"Final filtered posts: {len(unique_posts)}")
+            return unique_posts
+            
+        except Exception as e:
+            print(f"Error in duplicate filtering: {e}")
+            print("Continuing without duplicate filtering...")
+            return posts
     
     def score_to_stars(self, score: float) -> str:
         """Convert numerical score to star rating"""
