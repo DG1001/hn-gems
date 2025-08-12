@@ -20,6 +20,7 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
 - **Success Metrics**: Real-time monitoring of discovery accuracy and timing
 - **Quality Analysis**: AI-powered content analysis to identify technical depth and originality
 - **Anti-spam Protection**: Advanced filtering to maintain high quality
+- **Duplicate Detection**: Intelligent duplicate post detection and filtering to prevent spam and content recycling
 - **Visual Scoring System**: User-friendly star ratings and professional dot indicators instead of intimidating numerical scores
 - **Knowledge-Aware AI**: Smart evaluation system that avoids penalizing posts for recent technology releases
 - **Time-based Collection**: Intelligent collection that only processes posts from specified time windows
@@ -66,6 +67,7 @@ The system uses the official Hacker News API for all data collection:
 Key components:
 - **Data Collection**: Automatic background collection of HN new posts
 - **Quality Analysis**: AI-powered content evaluation with spam detection
+- **Duplicate Detection**: Advanced duplicate post filtering using URL normalization, content similarity analysis, and same-author detection
 - **Super Gems Analysis**: Advanced AI evaluation with visual scoring and knowledge-aware assessments
 - **Storage**: SQLite for development, PostgreSQL for production
 - **Web Interface**: Flask application with real-time updates
@@ -110,6 +112,31 @@ The Super Gems feature provides comprehensive AI-powered analysis of top hidden 
 - **super-gems-ratings.html**: Internal version with full visual scoring system
 - **super-gems.json**: JSON API data with all analysis details
 
+### Duplicate Detection System
+
+The application includes a comprehensive duplicate detection system to maintain content quality:
+
+**Detection Methods:**
+- **URL-based**: Detects identical URLs after normalization (removes tracking parameters, trailing slashes, etc.)
+- **Content similarity**: Uses sequence matching to identify posts with similar titles and content (configurable thresholds)
+- **Same-author detection**: Identifies users posting similar content multiple times (spam behavior)
+- **Title normalization**: Removes common HN prefixes ("Ask HN:", "Show HN:") and punctuation for better matching
+
+**Integration Points:**
+- **Post Collection**: Automatically checks for duplicates before saving new posts
+- **Super Gems Analysis**: Filters out duplicates before expensive LLM analysis
+- **Database Management**: Provides tools to find, mark, and clean up duplicate posts
+
+**Quality Preservation:**
+- Always keeps the **earlier post** (lower HN ID) or **higher quality post** (better gem score)
+- Marks duplicates as spam rather than deleting them
+- Maintains traceability of duplicate detection decisions
+
+**Performance Impact:**
+- Cleaned up 278 existing duplicate posts across 112 URLs in initial deployment
+- Significantly reduces noise and improves content quality in hidden gems feed
+- Prevents spam behavior where users post the same content multiple times
+
 ## Configuration
 
 Configure the application using environment variables:
@@ -133,6 +160,12 @@ Configure the application using environment variables:
 ### Quality Thresholds
 - `KARMA_THRESHOLD=100`: Max author karma for gems
 - `MIN_INTEREST_SCORE=0.3`: Min quality score for gems
+
+### Duplicate Detection Settings
+- `URL_SIMILARITY_THRESHOLD=0.95`: Minimum similarity score for URL matching (0.0-1.0)
+- `TITLE_SIMILARITY_THRESHOLD=0.85`: Minimum similarity score for title matching (0.0-1.0)
+- `CONTENT_SIMILARITY_THRESHOLD=0.8`: Minimum similarity score for content matching (0.0-1.0)
+- `SAME_AUTHOR_THRESHOLD=0.7`: Lower threshold when posts are by the same author (spam detection)
 
 ### Super Gems Analysis
 - `GEMINI_API_KEY`: Google Gemini API key for super gems analysis (required for super gems feature)
@@ -176,6 +209,12 @@ flask collect-now               # Manually trigger post collection
 flask monitor-gems              # Manually trigger Hall of Fame monitoring
 flask analyze-super-gems        # Manually trigger super gems analysis
 flask collection-status         # Check status of all services
+
+# Duplicate Detection Management
+flask find-duplicates           # Find and report duplicate posts
+flask clean-duplicates          # Automatically clean up duplicate posts
+flask check-post-duplicates     # Interactive duplicate checking for specific posts
+flask cleanup-existing-duplicates # Bulk cleanup of existing duplicates in database
 ```
 
 ### Service Features
