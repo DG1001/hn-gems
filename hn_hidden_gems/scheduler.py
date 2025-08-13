@@ -141,32 +141,22 @@ class PostCollectionScheduler:
             logger.info("Super gems analysis disabled (interval = 0)")
     
     def _configure_podcast_generation_job(self):
-        """Configure the podcast generation job (runs after super gems analysis)."""
+        """Configure the podcast generation job (triggers after super gems analysis, not on schedule)."""
         if not self.scheduler:
             return
             
         podcast_enabled = os.environ.get('AUDIO_GENERATION_ENABLED', 'false').lower() == 'true'
         
-        # Remove existing job if any
+        # Remove existing scheduled job if any (we don't want periodic podcast generation)
         try:
             self.scheduler.remove_job('generate_podcast')
         except:
             pass
         
         if podcast_enabled:
-            # Add podcast generation job - runs 30 minutes after super gems analysis
-            super_gems_interval = int(os.environ.get('SUPER_GEMS_INTERVAL_HOURS', 6))
-            if super_gems_interval > 0:
-                self.scheduler.add_job(
-                    func=self._generate_podcast_job,
-                    trigger=IntervalTrigger(hours=super_gems_interval),
-                    id='generate_podcast',
-                    name=f'Generate podcast audio every {super_gems_interval} hours',
-                    replace_existing=True
-                )
-                logger.info(f"Scheduled podcast generation every {super_gems_interval} hours")
-            else:
-                logger.info("Podcast generation enabled but super gems analysis disabled")
+            # Podcast generation will be triggered automatically after super gems analysis completes
+            # No separate scheduling needed - this prevents using stale data
+            logger.info("Podcast generation enabled - will trigger after super gems analysis completes")
         else:
             logger.info("Podcast generation disabled")
     
@@ -629,6 +619,15 @@ class PostCollectionScheduler:
             asyncio.run(analyzer.run_analysis(hours=analysis_hours, top_n=top_n))
             
             logger.info("Super gems analysis completed")
+            
+            # Trigger podcast generation after super gems analysis completes
+            podcast_enabled = os.environ.get('AUDIO_GENERATION_ENABLED', 'false').lower() == 'true'
+            if podcast_enabled:
+                logger.info("Triggering podcast generation after super gems analysis...")
+                try:
+                    self._generate_podcast_audio()
+                except Exception as podcast_error:
+                    logger.error(f"Podcast generation failed after super gems analysis: {podcast_error}")
             
         except Exception as e:
             logger.error(f"Super gems analysis failed: {e}")

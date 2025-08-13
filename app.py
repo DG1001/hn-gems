@@ -744,6 +744,19 @@ def create_app(config_name=None):
             
             logger.info("Super gems analysis completed successfully!")
             
+            # Trigger podcast generation after super gems analysis completes
+            podcast_enabled = os.environ.get('AUDIO_GENERATION_ENABLED', 'false').lower() == 'true'
+            if podcast_enabled:
+                logger.info("Triggering podcast generation after super gems analysis...")
+                try:
+                    # Get scheduler instance and trigger podcast generation
+                    if hasattr(app, 'scheduler') and app.scheduler:
+                        app.scheduler._generate_podcast_audio()
+                    else:
+                        logger.warning("Scheduler not available, podcast generation skipped")
+                except Exception as podcast_error:
+                    logger.error(f"Podcast generation failed after super gems analysis: {podcast_error}")
+            
         except Exception as e:
             logger.error(f"Super gems analysis failed: {e}")
     

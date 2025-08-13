@@ -64,7 +64,7 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
    - **Post Collection**: Discovers new gems every 5 minutes
    - **Hall of Fame Monitoring**: Checks for gem success every 6 hours
    - **Super Gems Analysis**: Deep AI analysis of top gems every 6 hours
-   - **Podcast Generation**: Creates audio podcasts from Super Gems analysis (when enabled)
+   - **Podcast Generation**: Automatically creates audio podcasts after Super Gems analysis completes (when enabled)
 
 ## Architecture
 
@@ -161,11 +161,12 @@ The HN Hidden Gems Podcast automatically converts Super Gems analysis into profe
    ```
 
 ### How It Works
-1. **Script Generation**: After Super Gems analysis completes, the system automatically generates a podcast script covering the top gems
-2. **Text Optimization**: Converts technical content for speech (e.g., "github.com/user/repo" → "github repository by user")
-3. **Audio Synthesis**: Converts optimized script to high-quality MP3 audio using Google Cloud TTS
-4. **Web Integration**: Audio player automatically appears on Super Gems pages with streaming and download options
-5. **File Management**: Automatic cleanup of old files based on retention policy
+1. **Automatic Trigger**: Podcast generation automatically starts after Super Gems analysis completes (ensuring fresh data)
+2. **Script Generation**: The system generates a podcast script covering the top gems from the latest analysis
+3. **Text Optimization**: Converts technical content for speech (e.g., "github.com/user/repo" → "github repository by user")
+4. **Audio Synthesis**: Converts optimized script to high-quality MP3 audio using Google Cloud TTS
+5. **Web Integration**: Audio player automatically appears on Super Gems pages with streaming and download options
+6. **File Management**: Automatic cleanup of old files based on retention policy
 
 ### Audio Player
 - **Auto-Detection**: Automatically appears on Super Gems pages
