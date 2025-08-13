@@ -30,7 +30,7 @@ class PodcastGenerator:
         self.generation_config = genai.types.GenerationConfig(
             temperature=0.7,  # Creative but consistent
             top_p=0.8,
-            max_output_tokens=1000,
+            max_output_tokens=8000,  # Increased for multiple gems
         )
     
     def generate_podcast_script(self, super_gems_data: dict) -> Dict[str, Any]:
@@ -54,14 +54,25 @@ class PodcastGenerator:
         
         # Generate segments for each gem
         gem_segments = []
-        for gem in gems:
+        for i, gem in enumerate(gems):
             try:
+                print(f"Generating script for gem {i+1}/{len(gems)}: {gem.get('title', 'Unknown')}")
                 segment = self._generate_gem_script(gem)
                 if segment:
                     gem_segments.append(segment)
+                    print(f"✅ Generated {len(segment.split())} words for gem {i+1}")
+                else:
+                    print(f"❌ Empty segment for gem {i+1}")
             except Exception as e:
-                print(f"Error generating script for gem {gem.get('hn_id', 'unknown')}: {e}")
-                # Continue with other gems
+                print(f"❌ Error generating script for gem {gem.get('hn_id', 'unknown')}: {e}")
+                # Try fallback script
+                try:
+                    fallback = self._generate_fallback_script(gem)
+                    if fallback:
+                        gem_segments.append(fallback)
+                        print(f"✅ Used fallback script for gem {i+1}")
+                except Exception as fallback_error:
+                    print(f"❌ Fallback also failed for gem {i+1}: {fallback_error}")
                 continue
         
         # Generate outro
@@ -147,7 +158,7 @@ IMPORTANT for audio optimization:
 - Create natural transitions between topics
 - Add pause markers (...) for better listening flow
 - No visual elements (stars, dots) - describe verbally
-- Keep segment to 2-3 minutes (300-450 words)
+- Keep segment to 1-2 minutes (150-300 words) for efficient processing
 
 Structure:
 1. Brief introduction for this gem
@@ -172,7 +183,7 @@ Detailed Analysis: {analysis.get('detailed_analysis', 'No detailed analysis avai
 Strengths: {', '.join(analysis.get('strengths', []))}
 Areas for Improvement: {', '.join(analysis.get('areas_for_improvement', []))}
 
-Generate a 2-3 minute script segment for this gem. Make it engaging and informative."""
+Generate a 1-2 minute script segment for this individual gem (this is one of multiple gems in the episode). Make it engaging and informative. Focus only on this specific project."""
         
         return prompt
     

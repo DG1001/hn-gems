@@ -1037,7 +1037,7 @@ def create_app(config_name=None):
                     'total_analyzed': len(super_gems_data)
                 }
                 
-                for gem in super_gems_data[:3]:  # First 3 for testing
+                for gem in super_gems_data:  # Process all gems
                     gem_entry = {
                         'hn_id': gem.get('post_hn_id'),
                         'title': gem.get('title'),

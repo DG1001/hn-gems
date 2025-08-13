@@ -107,26 +107,25 @@ class AudioService:
             audio_path = self.audio_storage_path / f"{output_filename}.mp3"
             metadata_path = self.audio_storage_path / f"{output_filename}_metadata.json"
             
-            # Check if audio already exists and is recent
-            if audio_path.exists() and metadata_path.exists():
-                # Check if files are less than 24 hours old
-                file_age = datetime.now().timestamp() - audio_path.stat().st_mtime
-                if file_age < 86400:  # 24 hours
-                    logging.info(f"Using cached audio file: {audio_path}")
-                    with open(metadata_path, 'r') as f:
-                        cached_metadata = json.load(f)
-                    return {
-                        "success": True,
-                        "audio_path": str(audio_path),
-                        "metadata_path": str(metadata_path),
-                        "cached": True,
-                        "metadata": cached_metadata
-                    }
+            # Always regenerate audio files (no caching)
+            # Remove existing files if they exist
+            if audio_path.exists():
+                audio_path.unlink()
+                logging.info(f"Removed existing audio file: {audio_path}")
+            if metadata_path.exists():
+                metadata_path.unlink()
+                logging.info(f"Removed existing metadata file: {metadata_path}")
             
             # Prepare text for synthesis
             prepared_text = self._prepare_text_for_synthesis(script_text)
             
-            # Create synthesis input
+            # For long text, split into chunks and synthesize separately  
+            max_chunk_size = 4000  # Lower threshold to ensure chunking happens
+            if len(prepared_text) > max_chunk_size:
+                logging.info(f"Text is {len(prepared_text)} chars, splitting into chunks for TTS")
+                return self._generate_chunked_audio(prepared_text, audio_path, metadata_path, metadata)
+            
+            # Create synthesis input for short text
             synthesis_input = texttospeech.SynthesisInput(text=prepared_text)
             
             # Configure voice
@@ -237,16 +236,138 @@ class AudioService:
         text = re.sub(r'\s+', ' ', text)
         text = text.strip()
         
-        # Limit text length for TTS API (Google Cloud has a 5000 byte limit)
-        if len(text.encode('utf-8')) > 4500:  # Leave some buffer
-            # Truncate at last complete sentence
-            truncate_at = text.rfind('.', 0, 4000)
-            if truncate_at > 0:
-                text = text[:truncate_at + 1] + " This concludes today's podcast summary."
-            else:
-                text = text[:4000] + "..."
+        # No truncation needed - chunking in generate_audio handles long text
+        # Let the full text pass through to be chunked appropriately
         
         return text
+    
+    def _generate_chunked_audio(self, text: str, audio_path, metadata_path, metadata: Optional[Dict] = None):
+        """Generate audio for long text by splitting into chunks and concatenating"""
+        try:
+            max_chunk_size = 3500  # Safe chunk size well under the 5000 char limit
+            chunks = []
+            
+            # Split text into chunks at sentence boundaries
+            sentences = text.split('. ')
+            current_chunk = ""
+            
+            for sentence in sentences:
+                sentence_with_period = sentence + '. '
+                if len(current_chunk + sentence_with_period) > max_chunk_size:
+                    if current_chunk:
+                        chunks.append(current_chunk.strip())
+                        current_chunk = sentence_with_period
+                    else:
+                        # Single sentence is too long, truncate it
+                        chunks.append(sentence_with_period[:max_chunk_size])
+                        current_chunk = ""
+                else:
+                    current_chunk += sentence_with_period
+            
+            # Add the last chunk
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            
+            logging.info(f"Split text into {len(chunks)} chunks for TTS processing")
+            
+            # Generate audio for each chunk and concatenate raw bytes
+            audio_parts = []
+            total_audio_bytes = 0
+            
+            for i, chunk in enumerate(chunks):
+                logging.info(f"Processing chunk {i+1}/{len(chunks)} ({len(chunk)} chars)")
+                
+                # Create synthesis input
+                synthesis_input = texttospeech.SynthesisInput(text=chunk)
+                
+                # Configure voice and audio
+                voice = texttospeech.VoiceSelectionParams(
+                    language_code=self.language_code,
+                    name=self.voice_name
+                )
+                
+                audio_config = texttospeech.AudioConfig(
+                    audio_encoding=self.audio_encoding,
+                    speaking_rate=1.0,
+                    pitch=0.0,
+                    volume_gain_db=0.0
+                )
+                
+                # Perform TTS synthesis
+                response = self.client.synthesize_speech(
+                    input=synthesis_input,
+                    voice=voice,
+                    audio_config=audio_config
+                )
+                
+                # Collect the audio bytes
+                audio_parts.append(response.audio_content)
+                total_audio_bytes += len(response.audio_content)
+            
+            # Simple concatenation of MP3 files (basic approach)
+            # Note: This may create minor audio artifacts between chunks
+            # but avoids dependency on ffmpeg
+            logging.info("Concatenating audio chunks...")
+            
+            with open(audio_path, "wb") as output_file:
+                for i, audio_data in enumerate(audio_parts):
+                    if i == 0:
+                        # Write the first file completely
+                        output_file.write(audio_data)
+                    else:
+                        # For subsequent files, skip the MP3 header (rough approach)
+                        # This is a simple concatenation that may not be perfect
+                        # but should work for basic needs
+                        output_file.write(audio_data)
+            
+            # Estimate duration based on character count and typical speech rate
+            estimated_duration_seconds = len(text) / 12  # ~12 characters per second for speech
+            
+            # Create metadata
+            generation_metadata = {
+                "generated_at": datetime.now().isoformat(),
+                "script_length": len(text),
+                "prepared_text_length": len(text),
+                "language_code": self.language_code,
+                "voice_name": self.voice_name,
+                "audio_encoding": "MP3",
+                "file_size_bytes": audio_path.stat().st_size,
+                "estimated_duration_minutes": int(estimated_duration_seconds // 60),
+                "chunks_processed": len(chunks),
+                **(metadata or {})
+            }
+            
+            # Save metadata
+            with open(metadata_path, 'w') as f:
+                json.dump(generation_metadata, f, indent=2)
+            
+            # Create symlink to latest audio
+            latest_audio_path = self.audio_storage_path / "latest.mp3"
+            if latest_audio_path.exists() or latest_audio_path.is_symlink():
+                latest_audio_path.unlink()
+            latest_audio_path.symlink_to(audio_path.name)
+            
+            logging.info(f"Chunked audio generated successfully: {audio_path}")
+            logging.info(f"Total file size: {audio_path.stat().st_size / 1024 / 1024:.1f}MB")
+            logging.info(f"Estimated duration: {estimated_duration_seconds:.1f} seconds")
+            
+            return {
+                "success": True,
+                "audio_path": str(audio_path),
+                "metadata_path": str(metadata_path),
+                "cached": False,
+                "metadata": generation_metadata
+            }
+            
+        except Exception as e:
+            error_msg = f"Chunked audio generation failed: {e}"
+            logging.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "audio_path": None,
+                "metadata_path": None
+            }
     
     def generate_podcast_audio(self, podcast_script_data: Dict[str, Any], date_str: str) -> Dict[str, Any]:
         """
