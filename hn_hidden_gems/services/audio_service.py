@@ -214,8 +214,21 @@ class AudioService:
         # Remove anything in double asterisks like **(Intro Music Fades)** or **Host:**
         text = re.sub(r'\*\*[^*]+\*\*', '', text)
         
+        # Remove parenthetical stage directions like (Pause), (Transition Music Starts)
+        text = re.sub(r'\([^)]*(?:pause|music|transition|intro|outro|fade|begin|start|end)[^)]*\)', '', text, flags=re.IGNORECASE)
+        
+        # Remove any remaining parenthetical directions that are common stage directions
+        text = re.sub(r'\((?:pause|break|music|transition|intro|outro|fade|begin|start|end|breath|silence)\)', '', text, flags=re.IGNORECASE)
+        
         # Remove any remaining single asterisks or markdown formatting
         text = re.sub(r'\*+', '', text)
+        
+        # Remove speaker labels and other common stage directions
+        text = re.sub(r'Host:\s*', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'Assistant:\s*', '', text, flags=re.IGNORECASE)
+        
+        # Remove any remaining stage direction patterns
+        text = re.sub(r'\[[^\]]*(?:pause|music|sound|effect|transition)[^\]]*\]', '', text, flags=re.IGNORECASE)
         
         # Clean up extra spaces and line breaks after removing markers
         text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces with single space
