@@ -9,6 +9,10 @@ A tool that discovers high-quality Hacker News posts from low-karma accounts tha
 
 The HN Hidden Gems Finder helps surface excellent content from new or low-karma Hacker News users that often gets buried despite being valuable. This addresses the problem where great "Show HN" posts and discussions get no traction simply because the author doesn't have established karma.
 
+## ⚠️ Experimental Status
+
+**Please note:** This project is experimental in nature. The AI-generated content analysis, scoring, and podcast features are in **alpha** status and should not be taken too seriously. All AI-generated text, evaluations, and audio content represent algorithmic interpretations and may contain inaccuracies, biases, or subjective opinions. This is primarily a research project exploring automated content discovery and AI-powered analysis techniques.
+
 ## Features
 
 - **Real-time Hidden Gems Feed**: Continuously discovers overlooked quality posts (every 5 minutes)
@@ -16,7 +20,7 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
   - **Post Collection**: Automatic discovery and analysis with configurable intervals (no Redis required)
   - **Hall of Fame Monitoring**: Tracks gems that achieve success and automatically promotes them (every 6 hours)
   - **Super Gems Analysis**: AI-powered deep analysis of top gems using Google Gemini with user-friendly visual scoring (every 6 hours)
-  - **Podcast Generation**: Automatic conversion of Super Gems analysis to professional podcast audio using AI script generation and Google Cloud Text-to-Speech
+  - **Podcast Generation**: Automatic conversion of Super Gems analysis to professional podcast audio using AI script generation and Google Cloud Text-to-Speech *(alpha - experimental feature)*
 - **Hall of Fame**: Automated tracking of discovered gems that later became popular (≥100 points)
 - **Success Metrics**: Real-time monitoring of discovery accuracy and timing
 - **Quality Analysis**: AI-powered content analysis to identify technical depth and originality
