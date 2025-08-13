@@ -88,3 +88,5 @@ super-gems.html
 super-gems-ratings.html
 super-gems.json
 super-gems-ratings.json
+static/audio/
+.google.json

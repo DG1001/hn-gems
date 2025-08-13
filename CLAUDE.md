@@ -177,3 +177,4 @@ The repository currently contains:
 - Basic project structure ready for development
 
 No main application code has been implemented yet - the project is in the initial setup phase.
+- never add or commit to git, I'll do that

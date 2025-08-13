@@ -60,6 +60,7 @@ class PostCollectionScheduler:
         self._configure_collection_job()
         self._configure_hall_of_fame_job()
         self._configure_super_gems_job()
+        self._configure_podcast_generation_job()
         
     def _configure_collection_job(self):
         """Configure the periodic collection job."""
@@ -138,6 +139,36 @@ class PostCollectionScheduler:
             logger.info(f"Scheduled super gems analysis every {super_gems_interval} hours")
         else:
             logger.info("Super gems analysis disabled (interval = 0)")
+    
+    def _configure_podcast_generation_job(self):
+        """Configure the podcast generation job (runs after super gems analysis)."""
+        if not self.scheduler:
+            return
+            
+        podcast_enabled = os.environ.get('AUDIO_GENERATION_ENABLED', 'false').lower() == 'true'
+        
+        # Remove existing job if any
+        try:
+            self.scheduler.remove_job('generate_podcast')
+        except:
+            pass
+        
+        if podcast_enabled:
+            # Add podcast generation job - runs 30 minutes after super gems analysis
+            super_gems_interval = int(os.environ.get('SUPER_GEMS_INTERVAL_HOURS', 6))
+            if super_gems_interval > 0:
+                self.scheduler.add_job(
+                    func=self._generate_podcast_job,
+                    trigger=IntervalTrigger(hours=super_gems_interval),
+                    id='generate_podcast',
+                    name=f'Generate podcast audio every {super_gems_interval} hours',
+                    replace_existing=True
+                )
+                logger.info(f"Scheduled podcast generation every {super_gems_interval} hours")
+            else:
+                logger.info("Podcast generation enabled but super gems analysis disabled")
+        else:
+            logger.info("Podcast generation disabled")
     
     def start(self):
         """Start the scheduler."""
@@ -230,6 +261,15 @@ class PostCollectionScheduler:
             
         with self.app.app_context():
             self._analyze_super_gems()
+    
+    def _generate_podcast_job(self):
+        """Scheduled podcast generation job."""
+        if not self.app:
+            logger.error("No Flask app available for podcast generation")
+            return
+            
+        with self.app.app_context():
+            self._generate_podcast_audio()
     
     def _collect_posts_manual(self, minutes_back):
         """Manual collection with Flask app context."""
@@ -592,6 +632,147 @@ class PostCollectionScheduler:
             
         except Exception as e:
             logger.error(f"Super gems analysis failed: {e}")
+    
+    def _generate_podcast_audio(self):
+        """
+        Generate podcast audio from the latest super gems analysis.
+        Runs within Flask app context.
+        """
+        try:
+            import os
+            import json
+            from datetime import datetime
+            from hn_hidden_gems.services.podcast_generator import PodcastGenerator
+            from hn_hidden_gems.services.audio_service import AudioService
+            
+            # Check if podcast generation is enabled
+            podcast_enabled = os.environ.get('AUDIO_GENERATION_ENABLED', 'false').lower() == 'true'
+            if not podcast_enabled:
+                logger.info("Podcast generation disabled, skipping")
+                return
+            
+            logger.info("Starting podcast audio generation...")
+            
+            # Check for required API keys
+            gemini_api_key = self.app.config.get('GEMINI_API_KEY') or os.environ.get('GEMINI_API_KEY')
+            if not gemini_api_key:
+                logger.error("GEMINI_API_KEY not configured, cannot generate podcast script")
+                return
+            
+            # Load super gems data
+            super_gems_file = 'super-gems.json'
+            if not os.path.exists(super_gems_file):
+                logger.error(f"Super gems file {super_gems_file} not found, skipping podcast generation")
+                return
+            
+            with open(super_gems_file, 'r') as f:
+                super_gems_data = json.load(f)
+            
+            if not super_gems_data:
+                logger.info("No super gems data available, creating empty podcast script")
+                super_gems_data = []
+            
+            # Transform data to expected format
+            gems_data = {
+                'gems': [],
+                'generation_timestamp': datetime.now().isoformat(),
+                'total_analyzed': len(super_gems_data)
+            }
+            
+            # Convert super gems JSON to expected format
+            for gem in super_gems_data:
+                gem_entry = {
+                    'hn_id': gem.get('post_hn_id'),
+                    'title': gem.get('title'),
+                    'url': gem.get('url'),
+                    'author': gem.get('author'),
+                    'analysis': gem.get('analysis', {}),
+                    'author_karma': 50  # Default for low-karma gems
+                }
+                
+                # Add detailed analysis from performance indicators and other data
+                analysis = gem_entry['analysis']
+                analysis['overall_rating'] = gem.get('super_gem_score', 0)
+                analysis['detailed_analysis'] = f"This {gem.get('title', 'project')} demonstrates excellent technical merit with a super gem score of {gem.get('super_gem_score', 0):.1f}."
+                analysis['strengths'] = ["High-quality implementation", "Strong community value", "Innovative approach"]
+                analysis['areas_for_improvement'] = ["Documentation could be expanded"]
+                
+                gems_data['gems'].append(gem_entry)
+            
+            # Initialize podcast generator
+            podcast_generator = PodcastGenerator(gemini_api_key)
+            
+            # Generate podcast script
+            script_data = podcast_generator.generate_podcast_script(gems_data)
+            
+            if not script_data or not script_data.get('script'):
+                logger.error("Failed to generate podcast script")
+                return
+            
+            logger.info(f"Generated podcast script with {script_data['metadata']['total_words']} words")
+            
+            # Initialize audio service (only if Google Cloud TTS is configured)
+            try:
+                # Get audio storage path
+                audio_storage_path = os.environ.get('AUDIO_STORAGE_PATH', 'static/audio')
+                
+                # Ensure directory exists
+                os.makedirs(audio_storage_path, exist_ok=True)
+                
+                # Initialize audio service
+                audio_service = AudioService(
+                    credentials_path=os.environ.get('GOOGLE_TTS_CREDENTIALS_PATH'),
+                    language_code=os.environ.get('TTS_LANGUAGE_CODE', 'en-US'),
+                    voice_name=os.environ.get('TTS_VOICE_NAME', 'en-US-Neural2-J'),
+                    audio_encoding=os.environ.get('TTS_AUDIO_ENCODING', 'MP3'),
+                    audio_storage_path=audio_storage_path
+                )
+                
+                if not audio_service.is_available:
+                    logger.warning("Google Cloud TTS not available, saving script only")
+                    # Save script to file for manual processing later
+                    script_filename = f"podcast_script_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                    script_path = os.path.join(audio_storage_path, script_filename)
+                    with open(script_path, 'w', encoding='utf-8') as f:
+                        f.write(script_data['script'])
+                    logger.info(f"Saved podcast script to {script_path}")
+                    return
+                
+                # Generate audio
+                date_str = datetime.now().strftime('%Y-%m-%d')
+                result = audio_service.generate_podcast_audio(script_data, date_str)
+                
+                if result['success']:
+                    logger.info(f"Podcast audio generated successfully: {result['audio_path']}")
+                    if result.get('cached'):
+                        logger.info("Used cached audio file (less than 24 hours old)")
+                    else:
+                        file_size_mb = result['metadata']['file_size_bytes'] / (1024 * 1024)
+                        duration_min = result['metadata']['estimated_duration_minutes']
+                        logger.info(f"Audio file size: {file_size_mb:.1f}MB, estimated duration: {duration_min} minutes")
+                    
+                    # Clean up old files
+                    cleanup_days = int(os.environ.get('AUDIO_CLEANUP_DAYS', 30))
+                    audio_service.cleanup_old_files(max_age_days=cleanup_days)
+                    
+                else:
+                    logger.error(f"Failed to generate podcast audio: {result.get('error', 'Unknown error')}")
+                    
+            except Exception as audio_error:
+                logger.error(f"Audio generation failed: {audio_error}")
+                # Still save the script for manual processing
+                script_filename = f"podcast_script_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                try:
+                    with open(script_filename, 'w', encoding='utf-8') as f:
+                        f.write(script_data['script'])
+                    logger.info(f"Saved podcast script to {script_filename} for manual processing")
+                except Exception as save_error:
+                    logger.error(f"Failed to save podcast script: {save_error}")
+            
+        except Exception as e:
+            logger.error(f"Podcast generation failed: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
 
 # Global scheduler instance
 scheduler = PostCollectionScheduler()

@@ -875,6 +875,9 @@ class SuperGemsAnalyzer:
             <a href="https://github.com/DG1001/hn-gems">Source Code</a>
         </div>
     </div>
+    
+    <!-- Podcast Player Integration -->
+    <script src="/static/js/audio_player.js"></script>
 </body>
 </html>
         """)

@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, jsonify, request, current_app, send_from_directory, send_file
-from hn_hidden_gems.models import Post, QualityScore, HallOfFame, User
+from hn_hidden_gems.models import Post, QualityScore, HallOfFame, User, AudioMetadata, PodcastScript
 from hn_hidden_gems.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -37,6 +37,15 @@ def super_gems():
         return send_file(super_gems_file)
     else:
         return render_template('super_gems_not_found.html'), 404
+
+@main.route('/audio/<filename>')
+def serve_audio(filename):
+    """Serve audio files."""
+    try:
+        audio_dir = current_app.config.get('AUDIO_STORAGE_PATH', 'static/audio')
+        return send_from_directory(audio_dir, filename)
+    except FileNotFoundError:
+        return jsonify({'error': 'Audio file not found'}), 404
 
 @main.route('/sw.js')
 def service_worker():
@@ -335,3 +344,137 @@ def collection_config():
     except Exception as e:
         logger.error(f"Error getting collection config: {e}")
         return jsonify({'error': 'Failed to get collection config'}), 500
+
+# Audio/Podcast API Routes
+
+@api.route('/audio/super-gems/latest')
+def get_latest_super_gems_audio():
+    """Get the latest super gems podcast audio."""
+    try:
+        audio_metadata = AudioMetadata.find_latest('super-gems')
+        if not audio_metadata:
+            return jsonify({'error': 'No super gems audio available'}), 404
+        
+        return jsonify({
+            'audio': audio_metadata.to_dict(),
+            'download_url': f'/audio/{audio_metadata.filename}',
+            'stream_url': f'/audio/{audio_metadata.filename}'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting latest super gems audio: {e}")
+        return jsonify({'error': 'Failed to fetch audio'}), 500
+
+@api.route('/audio/super-gems/<date>')
+def get_super_gems_audio_by_date(date):
+    """Get super gems podcast audio for specific date (YYYY-MM-DD)."""
+    try:
+        # Parse date
+        target_date = datetime.strptime(date, '%Y-%m-%d').date()
+        
+        # Find audio file for that date
+        filename_pattern = f"{date}_super-gems.mp3"
+        audio_metadata = AudioMetadata.find_by_filename(filename_pattern)
+        
+        if not audio_metadata:
+            return jsonify({'error': f'No audio available for {date}'}), 404
+        
+        # Record access
+        audio_metadata.record_access()
+        
+        return jsonify({
+            'audio': audio_metadata.to_dict(),
+            'download_url': f'/audio/{audio_metadata.filename}',
+            'stream_url': f'/audio/{audio_metadata.filename}'
+        })
+        
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+    except Exception as e:
+        logger.error(f"Error getting super gems audio for {date}: {e}")
+        return jsonify({'error': 'Failed to fetch audio'}), 500
+
+@api.route('/audio/generate', methods=['POST'])
+def generate_audio():
+    """Manually trigger podcast audio generation."""
+    try:
+        # Get request data
+        data = request.get_json() or {}
+        source = data.get('source', 'super-gems')
+        
+        if source not in ['super-gems']:
+            return jsonify({'error': 'Invalid source. Only "super-gems" supported'}), 400
+        
+        # Check if podcast generation is enabled
+        podcast_enabled = os.environ.get('AUDIO_GENERATION_ENABLED', 'false').lower() == 'true'
+        if not podcast_enabled:
+            return jsonify({'error': 'Podcast generation is disabled'}), 503
+        
+        # Trigger podcast generation
+        from hn_hidden_gems.scheduler import scheduler
+        
+        # Use a background thread to avoid timeout
+        import threading
+        
+        def run_podcast_generation():
+            try:
+                with current_app.app_context():
+                    scheduler._generate_podcast_audio()
+            except Exception as e:
+                logger.error(f"Background podcast generation failed: {e}")
+        
+        thread = threading.Thread(target=run_podcast_generation, daemon=True)
+        thread.start()
+        
+        return jsonify({
+            'status': 'triggered',
+            'message': 'Podcast generation started in background',
+            'source': source
+        })
+        
+    except Exception as e:
+        logger.error(f"Error triggering audio generation: {e}")
+        return jsonify({'error': 'Failed to trigger audio generation'}), 500
+
+@api.route('/audio/list')
+def list_audio():
+    """List available audio files."""
+    try:
+        limit = min(int(request.args.get('limit', 10)), 50)
+        source = request.args.get('source', 'super-gems')
+        
+        audio_list = AudioMetadata.get_recent(limit=limit, script_source=source)
+        
+        return jsonify({
+            'audio_files': [
+                {
+                    **audio.to_dict(),
+                    'download_url': f'/audio/{audio.filename}',
+                    'stream_url': f'/audio/{audio.filename}'
+                }
+                for audio in audio_list
+            ],
+            'count': len(audio_list),
+            'source': source
+        })
+        
+    except Exception as e:
+        logger.error(f"Error listing audio files: {e}")
+        return jsonify({'error': 'Failed to list audio files'}), 500
+
+@api.route('/podcast/scripts/latest')
+def get_latest_podcast_script():
+    """Get the latest generated podcast script."""
+    try:
+        script = PodcastScript.find_latest('super-gems')
+        if not script:
+            return jsonify({'error': 'No podcast script available'}), 404
+        
+        return jsonify({
+            'script': script.to_dict(),
+            'text_preview': script.script_text[:500] + '...' if len(script.script_text) > 500 else script.script_text
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting latest podcast script: {e}")
+        return jsonify({'error': 'Failed to fetch script'}), 500

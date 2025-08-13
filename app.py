@@ -998,6 +998,141 @@ def create_app(config_name=None):
             scheduler.stop()
             logger.info("Post collection service stopped on app shutdown")
     
+    # Podcast Management CLI Commands
+    @app.cli.command('generate-podcast')
+    def generate_podcast():
+        """Manually trigger podcast generation."""
+        try:
+            logger.info("Manually triggering podcast generation...")
+            
+            # Check if podcast generation is enabled
+            podcast_enabled = os.environ.get('AUDIO_GENERATION_ENABLED', 'false').lower() == 'true'
+            if not podcast_enabled:
+                logger.warning("Podcast generation is disabled. Set AUDIO_GENERATION_ENABLED=true to enable.")
+                logger.info("Running script generation only (no audio)...")
+                
+                # Just generate script for testing
+                from hn_hidden_gems.services.podcast_generator import PodcastGenerator
+                import json
+                
+                # Check for Gemini API key
+                gemini_api_key = app.config.get('GEMINI_API_KEY') or os.environ.get('GEMINI_API_KEY')
+                if not gemini_api_key:
+                    logger.error("GEMINI_API_KEY not found in environment or config")
+                    return
+                
+                # Load super gems data
+                super_gems_file = 'super-gems.json'
+                if not os.path.exists(super_gems_file):
+                    logger.error(f"Super gems file {super_gems_file} not found. Run super gems analysis first.")
+                    return
+                
+                with open(super_gems_file, 'r') as f:
+                    super_gems_data = json.load(f)
+                
+                # Transform data for podcast generation
+                gems_data = {
+                    'gems': [],
+                    'generation_timestamp': datetime.now().isoformat(),
+                    'total_analyzed': len(super_gems_data)
+                }
+                
+                for gem in super_gems_data[:3]:  # First 3 for testing
+                    gem_entry = {
+                        'hn_id': gem.get('post_hn_id'),
+                        'title': gem.get('title'),
+                        'url': gem.get('url'),
+                        'author': gem.get('author'),
+                        'analysis': gem.get('analysis', {}),
+                        'author_karma': 50
+                    }
+                    
+                    analysis = gem_entry['analysis']
+                    analysis['overall_rating'] = gem.get('super_gem_score', 0)
+                    analysis['detailed_analysis'] = gem.get('reasoning', f"This {gem.get('title', 'project')} demonstrates excellent technical merit.")
+                    analysis['strengths'] = gem.get('strengths', ["High-quality implementation"])
+                    analysis['areas_for_improvement'] = gem.get('concerns', ["Documentation could be expanded"])
+                    
+                    gems_data['gems'].append(gem_entry)
+                
+                # Generate script
+                podcast_generator = PodcastGenerator(gemini_api_key)
+                script_data = podcast_generator.generate_podcast_script(gems_data)
+                
+                if script_data and script_data.get('script'):
+                    # Save script
+                    output_file = f"manual_podcast_script_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                    with open(output_file, 'w', encoding='utf-8') as f:
+                        f.write(script_data['script'])
+                    
+                    logger.info(f"✅ Podcast script generated: {output_file}")
+                    logger.info(f"📊 Words: {script_data['metadata']['total_words']}, Duration: {script_data['metadata']['estimated_duration_minutes']} min")
+                else:
+                    logger.error("Failed to generate podcast script")
+                
+                return
+            
+            # Full podcast generation (script + audio)
+            with app.app_context():
+                scheduler._generate_podcast_audio()
+                logger.info("✅ Podcast generation completed")
+                
+        except Exception as e:
+            logger.error(f"Podcast generation failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+    
+    @app.cli.command('podcast-status')
+    def podcast_status():
+        """Check podcast generation status and configuration."""
+        try:
+            logger.info("📊 Podcast Generation Status")
+            logger.info("=" * 40)
+            
+            # Check configuration
+            podcast_enabled = os.environ.get('AUDIO_GENERATION_ENABLED', 'false').lower() == 'true'
+            gemini_key = os.environ.get('GEMINI_API_KEY')
+            tts_credentials = os.environ.get('GOOGLE_TTS_CREDENTIALS_PATH')
+            audio_path = os.environ.get('AUDIO_STORAGE_PATH', 'static/audio')
+            
+            logger.info(f"Audio Generation Enabled: {'✅ Yes' if podcast_enabled else '❌ No'}")
+            logger.info(f"Gemini API Key: {'✅ Configured' if gemini_key else '❌ Missing'}")
+            logger.info(f"Google TTS Credentials: {'✅ Configured' if tts_credentials else '❌ Not configured'}")
+            logger.info(f"Audio Storage Path: {audio_path}")
+            
+            # Check for existing files
+            super_gems_file = 'super-gems.json'
+            logger.info(f"Super Gems Data: {'✅ Available' if os.path.exists(super_gems_file) else '❌ Missing'}")
+            
+            # Check audio storage
+            if os.path.exists(audio_path):
+                import glob
+                audio_files = glob.glob(os.path.join(audio_path, "*.mp3"))
+                logger.info(f"Existing Audio Files: {len(audio_files)}")
+                for audio_file in audio_files[-3:]:  # Show last 3
+                    file_size = os.path.getsize(audio_file) / (1024 * 1024)  # MB
+                    logger.info(f"  • {os.path.basename(audio_file)} ({file_size:.1f} MB)")
+            else:
+                logger.info(f"Audio Storage Directory: ❌ Does not exist ({audio_path})")
+            
+            # Database status
+            try:
+                from hn_hidden_gems.models import AudioMetadata
+                audio_count = AudioMetadata.query.count()
+                logger.info(f"Audio Database Entries: {audio_count}")
+                
+                latest_audio = AudioMetadata.find_latest('super-gems')
+                if latest_audio:
+                    logger.info(f"Latest Audio: {latest_audio.filename} ({latest_audio.generation_timestamp})")
+                else:
+                    logger.info("Latest Audio: None")
+                    
+            except Exception as e:
+                logger.info(f"Database Status: ❌ Error checking database ({e})")
+            
+        except Exception as e:
+            logger.error(f"Failed to get podcast status: {e}")
+
     atexit.register(shutdown_scheduler)
     
     logger.info(f"Flask app created with config: {config_name}")

@@ -16,6 +16,7 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
   - **Post Collection**: Automatic discovery and analysis with configurable intervals (no Redis required)
   - **Hall of Fame Monitoring**: Tracks gems that achieve success and automatically promotes them (every 6 hours)
   - **Super Gems Analysis**: AI-powered deep analysis of top gems using Google Gemini with user-friendly visual scoring (every 6 hours)
+  - **Podcast Generation**: Automatic conversion of Super Gems analysis to professional podcast audio using AI script generation and Google Cloud Text-to-Speech
 - **Hall of Fame**: Automated tracking of discovered gems that later became popular (≥100 points)
 - **Success Metrics**: Real-time monitoring of discovery accuracy and timing
 - **Quality Analysis**: AI-powered content analysis to identify technical depth and originality
@@ -24,6 +25,7 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
 - **Visual Scoring System**: User-friendly star ratings and professional dot indicators instead of intimidating numerical scores
 - **Knowledge-Aware AI**: Smart evaluation system that avoids penalizing posts for recent technology releases
 - **Time-based Collection**: Intelligent collection that only processes posts from specified time windows
+- **Podcast Player**: Built-in HTML5 audio player with streaming and download capabilities for Super Gems podcasts
 
 ## Quick Start
 
@@ -58,6 +60,7 @@ The HN Hidden Gems Finder helps surface excellent content from new or low-karma 
    - **Post Collection**: Discovers new gems every 5 minutes
    - **Hall of Fame Monitoring**: Checks for gem success every 6 hours
    - **Super Gems Analysis**: Deep AI analysis of top gems every 6 hours
+   - **Podcast Generation**: Creates audio podcasts from Super Gems analysis (when enabled)
 
 ## Architecture
 
@@ -73,6 +76,7 @@ Key components:
 - **Web Interface**: Flask application with real-time updates
 - **Background Service**: APScheduler-based in-process collection (no Redis required)
 - **Time-based Processing**: Collects only posts from specified time windows
+- **Podcast System**: Automated script generation with Gemini 2.5 Flash-Lite and high-quality audio synthesis with Google Cloud TTS
 
 ## Documentation
 
@@ -111,6 +115,67 @@ The Super Gems feature provides comprehensive AI-powered analysis of top hidden 
 - **super-gems.html**: Clean, public-friendly version without ratings (maintains ranking order)
 - **super-gems-ratings.html**: Internal version with full visual scoring system
 - **super-gems.json**: JSON API data with all analysis details
+
+## Podcast Feature 🎧
+
+The HN Hidden Gems Podcast automatically converts Super Gems analysis into professional-quality audio content for on-the-go listening.
+
+### Features
+- **AI Script Generation**: Uses Gemini 2.5 Flash-Lite to create natural, engaging podcast scripts from Super Gems analysis
+- **Professional Audio**: High-quality MP3 generation with Google Cloud Neural2 voices
+- **Automatic Integration**: Seamlessly integrates with existing Super Gems analysis workflow
+- **Web Player**: Built-in HTML5 audio player with streaming, progress control, and download options
+- **Text Optimization**: Intelligently converts technical content for speech synthesis (URLs, acronyms, ratings)
+- **Cost-Efficient**: Uses Gemini 2.5 Flash-Lite model ($0.10/1M input, $0.40/1M output tokens)
+
+### Setup
+1. **Enable Podcast Generation**:
+   ```bash
+   # In your .env file
+   AUDIO_GENERATION_ENABLED=true
+   GEMINI_API_KEY=your-gemini-api-key-here
+   ```
+
+2. **Configure Google Cloud TTS** (optional - for audio generation):
+   ```bash
+   # Option 1: Service Account (recommended)
+   GOOGLE_TTS_CREDENTIALS_PATH=path/to/service-account.json
+   
+   # Option 2: API Key
+   GOOGLE_CLOUD_API_KEY=your-google-cloud-api-key-here
+   
+   # TTS Configuration
+   TTS_LANGUAGE_CODE=en-US
+   TTS_VOICE_NAME=en-US-Neural2-J
+   TTS_AUDIO_ENCODING=MP3
+   ```
+
+3. **Audio Storage Configuration**:
+   ```bash
+   AUDIO_STORAGE_PATH=static/audio
+   AUDIO_CLEANUP_DAYS=30
+   ```
+
+### How It Works
+1. **Script Generation**: After Super Gems analysis completes, the system automatically generates a podcast script covering the top gems
+2. **Text Optimization**: Converts technical content for speech (e.g., "github.com/user/repo" → "github repository by user")
+3. **Audio Synthesis**: Converts optimized script to high-quality MP3 audio using Google Cloud TTS
+4. **Web Integration**: Audio player automatically appears on Super Gems pages with streaming and download options
+5. **File Management**: Automatic cleanup of old files based on retention policy
+
+### Audio Player
+- **Auto-Detection**: Automatically appears on Super Gems pages
+- **Professional Controls**: Play/pause, progress bar, volume control, download button
+- **Mobile Responsive**: Works seamlessly on all devices
+- **Keyboard Shortcuts**: Spacebar (play/pause), arrow keys (seek ±10 seconds)
+- **Metadata Display**: Shows gem count, duration, generation date, file size
+
+### API Endpoints
+- `GET /api/audio/super-gems/latest`: Get latest podcast metadata
+- `GET /api/audio/super-gems/<date>`: Get podcast for specific date
+- `POST /api/audio/generate`: Manually trigger audio generation
+- `GET /api/audio/list`: List available podcast files
+- `GET /audio/<filename>`: Stream or download audio files
 
 ### Duplicate Detection System
 
@@ -156,6 +221,15 @@ Configure the application using environment variables:
 - `SUPER_GEMS_INTERVAL_HOURS=6`: Hours between super gems analysis (0 to disable)
 - `SUPER_GEMS_ANALYSIS_HOURS=48`: Hours back to analyze for super gems
 - `SUPER_GEMS_TOP_N=5`: Number of top gems to analyze per run
+
+### Podcast Generation Settings
+- `AUDIO_GENERATION_ENABLED=false`: Enable automatic podcast audio generation
+- `AUDIO_STORAGE_PATH=static/audio`: Directory to store generated audio files
+- `AUDIO_CLEANUP_DAYS=30`: Delete audio files older than N days
+- `GOOGLE_TTS_CREDENTIALS_PATH=path/to/service-account.json`: Path to Google Cloud service account JSON
+- `TTS_LANGUAGE_CODE=en-US`: Language code for TTS (en-US, de-DE, etc.)
+- `TTS_VOICE_NAME=en-US-Neural2-J`: Voice name for audio generation
+- `TTS_AUDIO_ENCODING=MP3`: Audio format (MP3, OGG_OPUS, LINEAR16)
 
 ### Quality Thresholds
 - `KARMA_THRESHOLD=100`: Max author karma for gems
@@ -210,6 +284,10 @@ flask monitor-gems              # Manually trigger Hall of Fame monitoring
 flask analyze-super-gems        # Manually trigger super gems analysis
 flask collection-status         # Check status of all services
 
+# Podcast Generation Management
+flask generate-podcast           # Manually trigger podcast generation
+flask podcast-status            # Check podcast generation status
+
 # Duplicate Detection Management
 flask find-duplicates           # Find and report duplicate posts
 flask clean-duplicates          # Automatically clean up duplicate posts
@@ -218,13 +296,14 @@ flask cleanup-existing-duplicates # Bulk cleanup of existing duplicates in datab
 ```
 
 ### Service Features
-- **Triple Background Services**: Post collection + Hall of Fame monitoring + Super gems analysis
+- **Quad Background Services**: Post collection + Hall of Fame monitoring + Super gems analysis + Podcast generation
 - **No External Dependencies**: No Redis or Celery required
 - **Auto-start/stop**: All services start with Flask app, stop when app stops
 - **Configurable Intervals**: 
   - Post collection: Default 5 minutes (set to 0 to disable)
   - Hall of Fame monitoring: Default 6 hours (set to 0 to disable)
   - Super gems analysis: Default 6 hours (set to 0 to disable)
+  - Podcast generation: Triggered after Super Gems analysis (when enabled)
 - **Time-based Collection**: Only processes posts from specified time windows
 - **Automated Success Tracking**: Promotes gems to Hall of Fame when they reach ≥100 points
 - **Thread-safe**: Prevents overlapping collection runs
@@ -249,6 +328,14 @@ flask cleanup-existing-duplicates # Bulk cleanup of existing duplicates in datab
 - `GET /api/collection/status`: Service status and statistics
 - `POST /api/collection/trigger`: Manually trigger collection
 - `GET /api/collection/config`: Current configuration
+
+### Podcast Service Endpoints
+- `GET /api/audio/super-gems/latest`: Get latest podcast metadata and URLs
+- `GET /api/audio/super-gems/<date>`: Get podcast for specific date (YYYY-MM-DD)
+- `POST /api/audio/generate`: Manually trigger podcast generation
+- `GET /api/audio/list`: List available podcast files
+- `GET /api/podcast/scripts/latest`: Get latest generated podcast script
+- `GET /audio/<filename>`: Stream or download audio files
 
 ### Utility Endpoints
 - `GET /api/health`: Health check endpoint
