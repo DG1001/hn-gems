@@ -264,6 +264,42 @@ class SuperGemsPodcastPlayer {
     }
     
     async loadLatestAudio() {
+        // Detect if we're on a static file served by nginx (like super-gems.html)
+        const isStaticFile = window.location.pathname.endsWith('.html') || !window.location.pathname.includes('/api/');
+        
+        if (isStaticFile) {
+            // For static files, use direct nginx redirect to latest.mp3
+            this.loadStaticAudio();
+        } else {
+            // For dynamic Flask routes, use the API
+            this.loadApiAudio();
+        }
+    }
+    
+    loadStaticAudio() {
+        try {
+            // Simple metadata for static mode
+            const metadata = {
+                filename: 'latest.mp3',
+                gems_count: 9,
+                estimated_duration_minutes: 17,
+                generation_timestamp: new Date().toISOString(),
+                file_size_bytes: 7400000  // Approximate
+            };
+            
+            const streamUrl = '/latest.mp3';  // nginx will redirect this
+            const downloadUrl = '/latest.mp3';
+            
+            this.loadAudio(metadata, streamUrl, downloadUrl);
+            this.updateStatus('Audio loaded (static mode)');
+            
+        } catch (error) {
+            console.error('Error loading static audio:', error);
+            this.updateStatus('Failed to load audio');
+        }
+    }
+    
+    async loadApiAudio() {
         try {
             const response = await fetch('/api/audio/super-gems/latest');
             if (!response.ok) {

@@ -751,6 +751,51 @@ class PostCollectionScheduler:
                         duration_min = result['metadata']['estimated_duration_minutes']
                         logger.info(f"Audio file size: {file_size_mb:.1f}MB, estimated duration: {duration_min} minutes")
                     
+                    # Save metadata to database for API access
+                    try:
+                        from hn_hidden_gems.models.audio import AudioMetadata
+                        from pathlib import Path
+                        
+                        audio_path = Path(result['audio_path'])
+                        
+                        # Check if this audio metadata already exists (prevent duplicates)
+                        existing = AudioMetadata.query.filter_by(filename=audio_path.name).first()
+                        if existing:
+                            # Update existing record
+                            existing.generation_timestamp = datetime.now()
+                            existing.generation_status = 'completed'
+                            existing.file_size_bytes = result['metadata'].get('file_size_bytes', 0)
+                            existing.actual_duration_seconds = result['metadata'].get('estimated_duration_minutes', 0) * 60
+                            existing.gems_count = result['metadata'].get('gems_count', 0)
+                            existing.estimated_duration_minutes = result['metadata'].get('estimated_duration_minutes', 0)
+                            logger.info(f"Updated existing audio metadata: {existing.filename}")
+                        else:
+                            # Create new record
+                            audio_metadata = AudioMetadata(
+                                filename=audio_path.name,
+                                file_path=str(audio_path),
+                                script_source='super-gems',
+                                generation_timestamp=datetime.now(),
+                                generation_status='completed',
+                                file_size_bytes=result['metadata'].get('file_size_bytes', 0),
+                                actual_duration_seconds=result['metadata'].get('estimated_duration_minutes', 0) * 60,
+                                estimated_duration_minutes=result['metadata'].get('estimated_duration_minutes', 0),
+                                gems_count=result['metadata'].get('gems_count', 0),
+                                voice_name=result['metadata'].get('voice_name', 'en-GB-Standard-B'),
+                                language_code=result['metadata'].get('language_code', 'en-US')
+                            )
+                            db.session.add(audio_metadata)
+                            logger.info(f"Created new audio metadata: {audio_metadata.filename}")
+                        
+                        db.session.commit()
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to save audio metadata to database: {e}")
+                        try:
+                            db.session.rollback()
+                        except:
+                            pass
+                    
                     # Clean up old files
                     cleanup_days = int(os.environ.get('AUDIO_CLEANUP_DAYS', 30))
                     audio_service.cleanup_old_files(max_age_days=cleanup_days)
