@@ -264,14 +264,19 @@ class SuperGemsPodcastPlayer {
     }
     
     async loadLatestAudio() {
-        // Detect if we're on a static file served by nginx (like super-gems.html)
-        const isStaticFile = window.location.pathname.endsWith('.html') || !window.location.pathname.includes('/api/');
-        
-        if (isStaticFile) {
-            // For static files, use direct nginx redirect to latest.mp3
-            this.loadStaticAudio();
-        } else {
-            // For dynamic Flask routes, use the API
+        // Check if static file is available first
+        try {
+            const response = await fetch('/latest.mp3', { method: 'HEAD' });
+            if (response.ok) {
+                // Static file exists, use static mode
+                this.loadStaticAudio();
+            } else {
+                // Static file not available, use API
+                this.loadApiAudio();
+            }
+        } catch (error) {
+            // If HEAD request fails, fallback to API
+            console.log('Static file check failed, using API fallback:', error);
             this.loadApiAudio();
         }
     }
