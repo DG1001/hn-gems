@@ -386,18 +386,18 @@ class SuperGemsPodcastPlayer {
         if (this.isPlaying) {
             this.audio.pause();
             this.isPlaying = false;
+            this.updatePlayPauseButton();
         } else {
             this.audio.play()
                 .then(() => {
                     this.isPlaying = true;
+                    this.updatePlayPauseButton();
                 })
                 .catch(error => {
                     console.error('Error playing audio:', error);
                     this.updateStatus('Error playing audio');
                 });
         }
-        
-        this.updatePlayPauseButton();
     }
     
     seekTo(event) {
