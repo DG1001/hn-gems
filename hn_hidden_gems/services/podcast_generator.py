@@ -150,6 +150,13 @@ Until next time, keep discovering the hidden treasures of the tech world."""
         """Create Gemini prompt for script generation"""
         analysis = gem_data.get('analysis', {})
         
+        # Filter out numerical scores to prevent LLM from mentioning them
+        filtered_analysis = {
+            'detailed_analysis': analysis.get('detailed_analysis', ''),
+            'strengths': analysis.get('strengths', []),
+            'areas_for_improvement': analysis.get('areas_for_improvement', [])
+        }
+        
         prompt = f"""You are an experienced podcast host for tech content. Convert the following HN Super Gems analysis into a natural, flowing podcast script segment in English.
 
 IMPORTANT for audio optimization:
@@ -170,10 +177,10 @@ Post Title: {gem_data.get('title', 'Unknown Title')}
 Post URL: {gem_data.get('url', 'No URL')}
 Author: {gem_data.get('author', 'Unknown Author')} (karma: {gem_data.get('author_karma', 0)})
 
-Detailed Analysis: {analysis.get('detailed_analysis', 'No detailed analysis available')}
+Detailed Analysis: {filtered_analysis.get('detailed_analysis', 'No detailed analysis available')}
 
-Strengths: {', '.join(analysis.get('strengths', []))}
-Areas for Improvement: {', '.join(analysis.get('areas_for_improvement', []))}
+Strengths: {', '.join(filtered_analysis.get('strengths', []))}
+Areas for Improvement: {', '.join(filtered_analysis.get('areas_for_improvement', []))}
 
 Real Community Metrics (when available):
 - GitHub Stars: {gem_data.get('badges', {}).get('github_stars', 'Not available')}
@@ -181,6 +188,8 @@ Real Community Metrics (when available):
 - Working Demo: {'Yes' if gem_data.get('badges', {}).get('has_demo') else 'No'}
 
 When available, mention real community metrics (GitHub stars, repository activity) rather than speculating about future community impact.
+
+IMPORTANT: Do NOT mention any numerical scores, ratings, or gem scores (like "0.8" or "solid score"). Focus on qualitative descriptions and factual metrics only.
 
 Generate a 1-2 minute script segment for this individual gem (this is one of multiple gems in the episode). Make it engaging and informative. Focus only on this specific project."""
         
