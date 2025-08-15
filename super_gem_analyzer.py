@@ -91,7 +91,7 @@ class SuperGemsAnalyzer:
         2. Problem Significance: How important is the problem being solved?
         3. Uniqueness: How unique is this compared to existing solutions?
         
-        Note: Implementation quality will be assessed separately using factual GitHub repository metrics.
+        Note: Implementation quality and community value will be assessed separately using factual GitHub repository metrics.
         
         Also determine:
         - Is this open source? (look for GitHub links, license mentions)
@@ -101,13 +101,6 @@ class SuperGemsAnalyzer:
         - What similar tools/solutions exist?
         - What are the key strengths?
         - What are potential concerns?
-        
-        If this is a Show HN post about a developer tool, give extra weight to:
-        - Solves real developer pain points
-        - Good technical documentation
-        - Open source with permissive license
-        - Active development
-        - Not just another wrapper around existing APIs
         
         EVALUATION GUIDELINES:
         - Do NOT heavily penalize posts for mentioning new releases or models you're unfamiliar with
@@ -119,7 +112,6 @@ class SuperGemsAnalyzer:
         {{
             "technical_innovation": 0.0-1.0,
             "problem_significance": 0.0-1.0,
-            "community_value": 0.0-1.0,
             "uniqueness": 0.0-1.0,
             "is_open_source": true/false,
             "has_working_demo": true/false,
@@ -131,7 +123,7 @@ class SuperGemsAnalyzer:
             "similar_tools": ["tool1", "tool2"]
         }}
         
-        Note: Do not include implementation_quality in your response as it will be calculated from GitHub metrics.
+        Note: Do not include implementation_quality or community_value in your response as these will be calculated from GitHub metrics.
         """
         
         self.github_analysis_prompt = """
@@ -446,6 +438,71 @@ class SuperGemsAnalyzer:
         
         return min(score, 1.0)  # Ensure max is 1.0
     
+    def calculate_factual_community_value(self, github_data: Dict[str, Any], analysis_data: Dict[str, Any]) -> float:
+        """
+        Calculate community value based on factual metrics only.
+        Returns score from 0.0 to 1.0.
+        """
+        if not github_data:
+            return 0.0
+        
+        score = 0.0
+        
+        # Community Engagement (50% weight)
+        stars = github_data.get('stars', 0)
+        if stars >= 1000:
+            score += 0.25  # Strong community interest
+        elif stars >= 100:
+            score += 0.20
+        elif stars >= 10:
+            score += 0.15
+        elif stars >= 1:
+            score += 0.10
+        
+        # Forks indicate people using/modifying the project
+        forks = github_data.get('forks', 0)
+        if forks >= 100:
+            score += 0.15
+        elif forks >= 10:
+            score += 0.10
+        elif forks >= 1:
+            score += 0.05
+        
+        # Watchers/subscribers show ongoing interest
+        subscribers = github_data.get('subscribers_count', 0)
+        if subscribers >= 50:
+            score += 0.10
+        elif subscribers >= 10:
+            score += 0.05
+        
+        # Collaboration Value (30% weight)
+        contributors = github_data.get('contributors_count', 0)
+        if contributors >= 10:
+            score += 0.15  # High collaboration
+        elif contributors >= 3:
+            score += 0.10
+        elif contributors >= 1:
+            score += 0.05
+        
+        # Open source encourages community participation
+        is_open_source = analysis_data.get('is_open_source', False)
+        if is_open_source:
+            score += 0.15
+        
+        # Accessibility & Usability (20% weight)
+        # Good documentation makes it accessible to community
+        if github_data.get('has_docs', False):
+            score += 0.05
+        if github_data.get('readme_length', 0) >= 1000:
+            score += 0.05
+        
+        # Working demo shows usability
+        has_demo = analysis_data.get('has_working_demo', False)
+        if has_demo:
+            score += 0.10
+        
+        return min(score, 1.0)  # Ensure max is 1.0
+    
     async def analyze_with_llm(self, post: Dict[str, Any]) -> SuperGemAnalysis:
         """Perform deep analysis using Gemini"""
         
@@ -557,24 +614,9 @@ class SuperGemsAnalyzer:
                     except json.JSONDecodeError as e2:
                         print(f"Fixed JSON still failed: {e2}")
                         if attempt == max_retries - 1:  # Last attempt
-                            print(f"Final attempt failed, using fallback analysis...")
-                            # Final fallback: create dummy analysis data but still process the post
-                            analysis_data = {
-                                'technical_innovation': 0.6,  # Give benefit of doubt
-                                'problem_significance': 0.7,
-                                'community_value': 0.6,
-                                'uniqueness': 0.5,
-                                'is_open_source': True,  # Assume positive for Show HN
-                                'has_working_demo': False,
-                                'has_documentation': False,
-                                'is_commercial': False,
-                                'reasoning': f"Analysis partially failed due to JSON parsing error after {max_retries} attempts, but post appears valuable based on title/content",
-                                'strengths': ["Show HN post indicating innovation", "Community-shared project"],
-                                'concerns': ["LLM analysis parsing incomplete"],
-                                'similar_tools': []
-                            }
-                            # Note: implementation_quality will be calculated factually from GitHub data
-                            break
+                            print(f"Final attempt failed, cannot create reliable analysis for post {post['id']}")
+                            print(f"Skipping post to avoid creating analysis with dummy data")
+                            return None  # Fail gracefully instead of creating fake data
                         else:
                             print(f"Retrying analysis for post {post['id']}...")
                             continue  # Try again
@@ -629,8 +671,9 @@ class SuperGemsAnalyzer:
                     print(f"Error in GitHub-specific analysis for post {post['id']}: {e}")
                     github_analysis = {'code_quality': 0, 'readme_quality': 0}
             
-            # Calculate factual implementation quality based on GitHub metrics
+            # Calculate factual implementation quality and community value based on GitHub metrics
             factual_implementation_quality = self.calculate_factual_implementation_quality(github_data)
+            factual_community_value = self.calculate_factual_community_value(github_data, analysis_data)
             
             # Combine all analysis and create SuperGemAnalysis object
             params = {
@@ -644,14 +687,14 @@ class SuperGemsAnalyzer:
                 'technical_innovation': analysis_data.get('technical_innovation', 0),
                 'problem_significance': analysis_data.get('problem_significance', 0),
                 'implementation_quality': factual_implementation_quality,  # Use factual score instead of LLM guess
-                'community_value': analysis_data.get('community_value', 0),
+                'community_value': factual_community_value,  # Use factual score instead of LLM guess
                 'uniqueness_score': analysis_data.get('uniqueness', 0),
                 'is_open_source': analysis_data.get('is_open_source', False),
                 'has_working_demo': analysis_data.get('has_working_demo', False),
                 'has_documentation': analysis_data.get('has_documentation', False),
                 'is_commercially_focused': analysis_data.get('is_commercial', False),
                 'llm_reasoning': analysis_data.get('reasoning', ''),
-                'super_gem_score': self.calculate_super_gem_score(analysis_data, github_data, factual_implementation_quality),
+                'super_gem_score': self.calculate_super_gem_score(analysis_data, github_data, factual_implementation_quality, factual_community_value),
                 'key_strengths': analysis_data.get('strengths', []),
                 'potential_concerns': analysis_data.get('concerns', []),
                 'similar_tools': analysis_data.get('similar_tools', []),
@@ -668,17 +711,18 @@ class SuperGemsAnalyzer:
             print(f"LLM Analysis error for post {post['id']}: {e}")
             return None
     
-    def calculate_super_gem_score(self, analysis: Dict, github_data: Dict, factual_implementation_quality: float = None) -> float:
+    def calculate_super_gem_score(self, analysis: Dict, github_data: Dict, factual_implementation_quality: float = None, factual_community_value: float = None) -> float:
         """Calculate final super gem score with weighted factors"""
         
-        # Use factual implementation quality if provided, otherwise fall back to analysis data
+        # Use factual scores if provided, otherwise fall back to analysis data
         implementation_score = factual_implementation_quality if factual_implementation_quality is not None else analysis.get('implementation_quality', 0)
+        community_score = factual_community_value if factual_community_value is not None else analysis.get('community_value', 0)
         
         base_score = (
             analysis.get('technical_innovation', 0) * 0.25 +
             analysis.get('problem_significance', 0) * 0.25 +
             implementation_score * 0.20 +
-            analysis.get('community_value', 0) * 0.20 +
+            community_score * 0.20 +
             analysis.get('uniqueness', 0) * 0.10
         )
         
