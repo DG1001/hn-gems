@@ -162,7 +162,11 @@ The HN Hidden Gems Podcast automatically converts Super Gems analysis into profe
 
 ### How It Works
 1. **Automatic Trigger**: Podcast generation automatically starts after Super Gems analysis completes (ensuring fresh data)
-2. **Script Generation**: The system generates a podcast script covering the top gems from the latest analysis
+2. **Script Generation**: The system generates natural, personalized podcast scripts focusing on:
+   - **Factual GitHub metrics** (stars, contributors, repository health)
+   - **Qualitative AI analysis** (specific to each project)
+   - **Real community data** (open source status, working demos)
+   - **No algorithmic scores** - avoids confusing numerical ratings
 3. **Text Optimization**: Converts technical content for speech (e.g., "github.com/user/repo" → "github repository by user")
 4. **Audio Synthesis**: Converts optimized script to high-quality MP3 audio using Google Cloud TTS
 5. **Web Integration**: Audio player automatically appears on Super Gems pages with streaming and download options
@@ -248,6 +252,9 @@ Configure the application using environment variables:
 
 ### Super Gems Analysis
 - `GEMINI_API_KEY`: Google Gemini API key for super gems analysis (required for super gems feature)
+- **Enhanced GitHub Analysis**: Uses 6 GitHub API calls per repository for detailed metrics
+- **Factual Implementation Quality**: Based on measurable GitHub metrics (stars, commits, structure)
+- **Podcast Generation**: Avoids algorithmic scores, focuses on factual data and qualitative analysis
 - The system automatically applies knowledge-aware evaluation to avoid penalizing recent technology releases
 - Uses temperature=0.1 for consistent, focused AI responses
 - Generates both HTML and JSON output for comprehensive analysis results

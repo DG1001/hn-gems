@@ -164,17 +164,11 @@ Structure:
 1. Brief introduction for this gem
 2. Explain the problem/innovation
 3. Technical highlights and implementation details
-4. Conclusion with rating
+4. Conclusion
 
 Post Title: {gem_data.get('title', 'Unknown Title')}
 Post URL: {gem_data.get('url', 'No URL')}
 Author: {gem_data.get('author', 'Unknown Author')} (karma: {gem_data.get('author_karma', 0)})
-Overall Rating: {analysis.get('overall_rating', 0)}
-
-Technical Innovation: {self._score_to_description(analysis.get('technical_innovation', '●'))}
-Problem Significance: {self._score_to_description(analysis.get('problem_significance', '●'))}
-Implementation Quality: {self._score_to_description(analysis.get('implementation_quality', '●'))}
-Uniqueness: {self._score_to_description(analysis.get('uniqueness_score', '●'))}
 
 Detailed Analysis: {analysis.get('detailed_analysis', 'No detailed analysis available')}
 
@@ -192,29 +186,6 @@ Generate a 1-2 minute script segment for this individual gem (this is one of mul
         
         return prompt
     
-    def _score_to_description(self, score_indicator: str) -> str:
-        """Convert score indicator to verbal description"""
-        if isinstance(score_indicator, str):
-            dot_count = score_indicator.count('●')
-            if dot_count >= 4:
-                return "exceptional"
-            elif dot_count >= 3:
-                return "excellent"
-            elif dot_count >= 2:
-                return "good"
-            else:
-                return "basic"
-        elif isinstance(score_indicator, (int, float)):
-            if score_indicator >= 0.8:
-                return "exceptional"
-            elif score_indicator >= 0.6:
-                return "excellent"
-            elif score_indicator >= 0.4:
-                return "good"
-            else:
-                return "basic"
-        else:
-            return "unknown"
     
     def _generate_fallback_script(self, gem_data: dict) -> str:
         """Generate fallback script without AI when Gemini fails"""
@@ -222,25 +193,28 @@ Generate a 1-2 minute script segment for this individual gem (this is one of mul
         author = gem_data.get('author', 'unknown developer')
         analysis = gem_data.get('analysis', {})
         
-        # Add real metrics if available
+        # Add real implementation metrics if available
         badges = gem_data.get('badges', {})
         github_stars = badges.get('github_stars', 0)
         is_open_source = badges.get('is_open_source', False)
         has_demo = badges.get('has_demo', False)
         
-        metrics_info = ""
+        # Build implementation details from factual GitHub metrics
+        implementation_details = ""
         if github_stars > 0:
-            metrics_info += f" The project has already gained {github_stars} GitHub stars, showing early community interest."
-        if is_open_source:
-            metrics_info += " It's open source, which encourages collaboration and transparency."
-        if has_demo:
-            metrics_info += " There's a working demo available for you to try."
-
+            implementation_details = f" The repository shows strong development practices with {github_stars} stars"
+            if has_demo:
+                implementation_details += " and includes a working demo"
+            if is_open_source:
+                implementation_details += ", and it's open source for community collaboration"
+        elif is_open_source:
+            implementation_details = " As an open source project, it encourages transparency and community contribution"
+        elif has_demo:
+            implementation_details = " There's a working demo available for you to try"
+        
         script = f"""Our next hidden gem comes from {author}, with a project called "{title}".
 
-This innovative solution tackles an important problem in the developer community. The technical approach shows {self._score_to_description(analysis.get('technical_innovation', '●'))} innovation, with {self._score_to_description(analysis.get('implementation_quality', '●'))} implementation quality.
-
-The project addresses a {self._score_to_description(analysis.get('problem_significance', '●'))} significance problem with a {self._score_to_description(analysis.get('uniqueness_score', '●'))} uniqueness in its approach.{metrics_info}
+This innovative solution tackles an important problem in the developer community. The technical approach shows notable innovation, addressing a significant problem with a unique approach.{implementation_details}
 
 {analysis.get('detailed_analysis', 'This project represents the kind of quality innovation we love to see from emerging developers in the Hacker News community.')}
 

@@ -89,9 +89,9 @@ class SuperGemsAnalyzer:
         
         1. Technical Innovation: How novel or innovative is the technical approach?
         2. Problem Significance: How important is the problem being solved?
-        3. Implementation Quality: Based on available information, how well-executed is this?
-        4. Community Value: How valuable would this be to the HN developer community?
-        5. Uniqueness: How unique is this compared to existing solutions?
+        3. Uniqueness: How unique is this compared to existing solutions?
+        
+        Note: Implementation quality will be assessed separately using factual GitHub repository metrics.
         
         Also determine:
         - Is this open source? (look for GitHub links, license mentions)
@@ -119,7 +119,6 @@ class SuperGemsAnalyzer:
         {{
             "technical_innovation": 0.0-1.0,
             "problem_significance": 0.0-1.0,
-            "implementation_quality": 0.0-1.0,
             "community_value": 0.0-1.0,
             "uniqueness": 0.0-1.0,
             "is_open_source": true/false,
@@ -131,24 +130,32 @@ class SuperGemsAnalyzer:
             "concerns": ["concern1", "concern2"],
             "similar_tools": ["tool1", "tool2"]
         }}
+        
+        Note: Do not include implementation_quality in your response as it will be calculated from GitHub metrics.
         """
         
         self.github_analysis_prompt = """
-        Analyze this GitHub repository for code quality and project health:
+        Provide a brief factual assessment of this GitHub repository based on available information:
         
         Repository: {repo_url}
         README Content: {readme}
         File Structure: {file_structure}
         Recent Commits: {recent_commits}
         
-        Evaluate:
-        1. Code Quality (0-1): Based on structure, organization, patterns
-        2. README Quality (0-1): Clarity, completeness, examples
-        3. Project Activity: Is it actively maintained?
-        4. Architecture: Is it well-designed?
-        5. Key Technologies Used
+        Focus on factual observations:
+        1. README Quality (0-1): Length, clarity, presence of examples/setup instructions
+        2. Documentation Assessment: Presence of docs, clear instructions
+        3. Key Technologies: What languages/frameworks are used
+        4. Notable Features: Any standout aspects visible from the README
         
-        Return as JSON with scores and observations.
+        Return as JSON:
+        {{
+            "readme_quality": 0.0-1.0,
+            "technologies": ["tech1", "tech2"],
+            "notable_features": ["feature1", "feature2"]
+        }}
+        
+        Avoid speculation about code quality you cannot see.
         """
     
     async def fetch_url_content(self, url: str) -> str:
@@ -174,7 +181,7 @@ class SuperGemsAnalyzer:
         return matches[0] if matches else None
     
     async def analyze_github_repo(self, repo_url: str) -> Dict[str, Any]:
-        """Analyze a GitHub repository"""
+        """Enhanced GitHub repository analysis with multiple API calls"""
         try:
             # Extract owner/repo from URL
             parsed = urlparse(repo_url)
@@ -184,35 +191,260 @@ class SuperGemsAnalyzer:
             else:
                 return {}
             
-            # Use GitHub API to get repo info
-            api_url = f"https://api.github.com/repos/{owner}/{repo}"
+            repo_analysis = {}
+            
             async with aiohttp.ClientSession() as session:
+                # 1. Basic repository information
+                api_url = f"https://api.github.com/repos/{owner}/{repo}"
                 async with session.get(api_url) as response:
                     if response.status == 200:
                         repo_data = await response.json()
-                        
-                        # Get README
-                        readme_url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/README.md"
-                        readme_content = await self.fetch_url_content(readme_url)
-                        if not readme_content:
-                            readme_url = f"https://raw.githubusercontent.com/{owner}/{repo}/master/README.md"
-                            readme_content = await self.fetch_url_content(readme_url)
-                        
-                        # Basic analysis without full repo clone
-                        return {
+                        repo_analysis.update({
                             'stars': repo_data.get('stargazers_count', 0),
                             'forks': repo_data.get('forks_count', 0),
                             'open_issues': repo_data.get('open_issues_count', 0),
+                            'total_issues': repo_data.get('open_issues_count', 0),  # GitHub API combines issues + PRs
                             'created_at': repo_data.get('created_at'),
                             'updated_at': repo_data.get('updated_at'),
+                            'pushed_at': repo_data.get('pushed_at'),
                             'description': repo_data.get('description', ''),
                             'language': repo_data.get('language', ''),
-                            'readme_content': (readme_content or '')[:5000],  # First 5k chars
-                            'license': (repo_data.get('license') or {}).get('name', 'Unknown')
-                        }
+                            'size': repo_data.get('size', 0),  # KB
+                            'license': (repo_data.get('license') or {}).get('name', 'Unknown'),
+                            'has_wiki': repo_data.get('has_wiki', False),
+                            'has_pages': repo_data.get('has_pages', False),
+                            'subscribers_count': repo_data.get('subscribers_count', 0)
+                        })
+                    else:
+                        return {}
+                
+                # 2. Languages used in the repository
+                try:
+                    languages_url = f"https://api.github.com/repos/{owner}/{repo}/languages"
+                    async with session.get(languages_url) as response:
+                        if response.status == 200:
+                            languages = await response.json()
+                            repo_analysis['languages'] = languages
+                            repo_analysis['language_count'] = len(languages)
+                            repo_analysis['primary_language'] = max(languages.items(), key=lambda x: x[1])[0] if languages else 'Unknown'
+                        else:
+                            repo_analysis['languages'] = {}
+                            repo_analysis['language_count'] = 0
+                            repo_analysis['primary_language'] = repo_analysis.get('language', 'Unknown')
+                except Exception as e:
+                    print(f"Error fetching languages for {owner}/{repo}: {e}")
+                    repo_analysis['languages'] = {}
+                    repo_analysis['language_count'] = 0
+                
+                # 3. Recent commits (last 10)
+                try:
+                    commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits?per_page=10"
+                    async with session.get(commits_url) as response:
+                        if response.status == 200:
+                            commits = await response.json()
+                            repo_analysis['recent_commits_count'] = len(commits)
+                            if commits:
+                                # Calculate days since last commit
+                                from datetime import datetime, timezone
+                                last_commit_date = datetime.fromisoformat(commits[0]['commit']['committer']['date'].replace('Z', '+00:00'))
+                                days_since_last_commit = (datetime.now(timezone.utc) - last_commit_date).days
+                                repo_analysis['days_since_last_commit'] = days_since_last_commit
+                                repo_analysis['last_commit_date'] = commits[0]['commit']['committer']['date']
+                            else:
+                                repo_analysis['days_since_last_commit'] = 9999
+                                repo_analysis['last_commit_date'] = None
+                        else:
+                            repo_analysis['recent_commits_count'] = 0
+                            repo_analysis['days_since_last_commit'] = 9999
+                            repo_analysis['last_commit_date'] = None
+                except Exception as e:
+                    print(f"Error fetching commits for {owner}/{repo}: {e}")
+                    repo_analysis['recent_commits_count'] = 0
+                    repo_analysis['days_since_last_commit'] = 9999
+                
+                # 4. Contributors count
+                try:
+                    contributors_url = f"https://api.github.com/repos/{owner}/{repo}/contributors?per_page=100"
+                    async with session.get(contributors_url) as response:
+                        if response.status == 200:
+                            contributors = await response.json()
+                            repo_analysis['contributors_count'] = len(contributors)
+                        else:
+                            repo_analysis['contributors_count'] = 0
+                except Exception as e:
+                    print(f"Error fetching contributors for {owner}/{repo}: {e}")
+                    repo_analysis['contributors_count'] = 0
+                
+                # 5. Repository contents (file structure analysis)
+                try:
+                    contents_url = f"https://api.github.com/repos/{owner}/{repo}/contents"
+                    async with session.get(contents_url) as response:
+                        if response.status == 200:
+                            contents = await response.json()
+                            files = [item['name'] for item in contents if item['type'] == 'file']
+                            dirs = [item['name'] for item in contents if item['type'] == 'dir']
+                            
+                            repo_analysis['root_files'] = files
+                            repo_analysis['root_directories'] = dirs
+                            
+                            # Check for important files
+                            important_files = {
+                                'has_readme': any(f.lower().startswith('readme') for f in files),
+                                'has_license': any(f.lower() in ['license', 'license.txt', 'license.md'] for f in files),
+                                'has_gitignore': '.gitignore' in files,
+                                'has_dockerfile': any(f.lower().startswith('dockerfile') for f in files),
+                                'has_requirements': any(f in files for f in ['requirements.txt', 'package.json', 'Cargo.toml', 'pom.xml', 'composer.json']),
+                                'has_tests': any(d.lower() in ['test', 'tests', 'spec', '__tests__'] for d in dirs),
+                                'has_docs': any(d.lower() in ['docs', 'doc', 'documentation'] for d in dirs),
+                                'has_ci': any(d in dirs for d in ['.github', '.gitlab-ci.yml', '.travis.yml', 'ci'])
+                            }
+                            repo_analysis.update(important_files)
+                        else:
+                            repo_analysis.update({
+                                'root_files': [],
+                                'root_directories': [],
+                                'has_readme': False,
+                                'has_license': False,
+                                'has_gitignore': False,
+                                'has_dockerfile': False,
+                                'has_requirements': False,
+                                'has_tests': False,
+                                'has_docs': False,
+                                'has_ci': False
+                            })
+                except Exception as e:
+                    print(f"Error fetching contents for {owner}/{repo}: {e}")
+                    repo_analysis.update({
+                        'root_files': [],
+                        'root_directories': [],
+                        'has_readme': False,
+                        'has_license': False,
+                        'has_gitignore': False,
+                        'has_dockerfile': False,
+                        'has_requirements': False,
+                        'has_tests': False,
+                        'has_docs': False,
+                        'has_ci': False
+                    })
+                
+                # 6. Get README content (keep existing logic)
+                readme_url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/README.md"
+                readme_content = await self.fetch_url_content(readme_url)
+                if not readme_content:
+                    readme_url = f"https://raw.githubusercontent.com/{owner}/{repo}/master/README.md"
+                    readme_content = await self.fetch_url_content(readme_url)
+                
+                repo_analysis['readme_content'] = (readme_content or '')[:5000]  # First 5k chars
+                repo_analysis['readme_length'] = len(readme_content or '')
+                
+                return repo_analysis
+                        
         except Exception as e:
             print(f"Error analyzing GitHub repo: {e}")
         return {}
+    
+    def calculate_factual_implementation_quality(self, github_data: Dict[str, Any]) -> float:
+        """
+        Calculate implementation quality based on factual GitHub metrics only.
+        Returns score from 0.0 to 1.0.
+        """
+        if not github_data:
+            return 0.0
+        
+        score = 0.0
+        
+        # Repository Health (40% weight)
+        # Stars indicate community validation
+        stars = github_data.get('stars', 0)
+        if stars >= 1000:
+            score += 0.16  # 40% of 40%
+        elif stars >= 100:
+            score += 0.12  # 30% of 40%
+        elif stars >= 10:
+            score += 0.08  # 20% of 40%
+        elif stars >= 1:
+            score += 0.04  # 10% of 40%
+        
+        # Recent activity indicates maintenance
+        days_since_commit = github_data.get('days_since_last_commit', 9999)
+        if days_since_commit <= 7:
+            score += 0.12  # Very recent
+        elif days_since_commit <= 30:
+            score += 0.08  # Recent
+        elif days_since_commit <= 90:
+            score += 0.04  # Somewhat recent
+        
+        # Issue management
+        open_issues = github_data.get('open_issues', 0)
+        if open_issues <= 5:
+            score += 0.08
+        elif open_issues <= 20:
+            score += 0.04
+        
+        # Documentation Quality (30% weight)
+        # README length indicates documentation effort
+        readme_length = github_data.get('readme_length', 0)
+        if readme_length >= 3000:
+            score += 0.15  # 50% of 30%
+        elif readme_length >= 1000:
+            score += 0.12  # 40% of 30%
+        elif readme_length >= 500:
+            score += 0.09  # 30% of 30%
+        elif readme_length >= 100:
+            score += 0.06  # 20% of 30%
+        
+        # Has documentation directory
+        if github_data.get('has_docs', False):
+            score += 0.09  # 30% of 30%
+        
+        # Has license
+        license_name = github_data.get('license', 'Unknown')
+        if license_name != 'Unknown':
+            score += 0.06  # 20% of 30%
+        
+        # Project Structure (20% weight)
+        structure_score = 0
+        # Essential development files
+        if github_data.get('has_requirements', False):
+            structure_score += 0.04  # 20% of 20%
+        if github_data.get('has_tests', False):
+            structure_score += 0.04  # 20% of 20%
+        if github_data.get('has_gitignore', False):
+            structure_score += 0.02  # 10% of 20%
+        if github_data.get('has_ci', False):
+            structure_score += 0.04  # 20% of 20%
+        if github_data.get('has_dockerfile', False):
+            structure_score += 0.02  # 10% of 20%
+        
+        # Language diversity (shows versatility)
+        language_count = github_data.get('language_count', 0)
+        if language_count >= 3:
+            structure_score += 0.04  # 20% of 20%
+        elif language_count >= 2:
+            structure_score += 0.02  # 10% of 20%
+        
+        score += min(structure_score, 0.20)  # Cap at 20%
+        
+        # Development Activity (10% weight)
+        # Multiple contributors indicate collaboration
+        contributors = github_data.get('contributors_count', 0)
+        if contributors >= 5:
+            score += 0.06  # 60% of 10%
+        elif contributors >= 2:
+            score += 0.04  # 40% of 10%
+        elif contributors >= 1:
+            score += 0.02  # 20% of 10%
+        
+        # Forks indicate community interest
+        forks = github_data.get('forks', 0)
+        if forks >= 10:
+            score += 0.04  # 40% of 10%
+        elif forks >= 5:
+            score += 0.02  # 20% of 10%
+        elif forks >= 1:
+            score += 0.01  # 10% of 10%
+        
+        return min(score, 1.0)  # Ensure max is 1.0
     
     async def analyze_with_llm(self, post: Dict[str, Any]) -> SuperGemAnalysis:
         """Perform deep analysis using Gemini"""
@@ -330,7 +562,6 @@ class SuperGemsAnalyzer:
                             analysis_data = {
                                 'technical_innovation': 0.6,  # Give benefit of doubt
                                 'problem_significance': 0.7,
-                                'implementation_quality': 0.5,
                                 'community_value': 0.6,
                                 'uniqueness': 0.5,
                                 'is_open_source': True,  # Assume positive for Show HN
@@ -342,6 +573,7 @@ class SuperGemsAnalyzer:
                                 'concerns': ["LLM analysis parsing incomplete"],
                                 'similar_tools': []
                             }
+                            # Note: implementation_quality will be calculated factually from GitHub data
                             break
                         else:
                             print(f"Retrying analysis for post {post['id']}...")
@@ -397,6 +629,9 @@ class SuperGemsAnalyzer:
                     print(f"Error in GitHub-specific analysis for post {post['id']}: {e}")
                     github_analysis = {'code_quality': 0, 'readme_quality': 0}
             
+            # Calculate factual implementation quality based on GitHub metrics
+            factual_implementation_quality = self.calculate_factual_implementation_quality(github_data)
+            
             # Combine all analysis and create SuperGemAnalysis object
             params = {
                 'post_id': post['id'],
@@ -408,7 +643,7 @@ class SuperGemsAnalyzer:
                 'original_score': post.get('gem_score', 0),
                 'technical_innovation': analysis_data.get('technical_innovation', 0),
                 'problem_significance': analysis_data.get('problem_significance', 0),
-                'implementation_quality': analysis_data.get('implementation_quality', 0),
+                'implementation_quality': factual_implementation_quality,  # Use factual score instead of LLM guess
                 'community_value': analysis_data.get('community_value', 0),
                 'uniqueness_score': analysis_data.get('uniqueness', 0),
                 'is_open_source': analysis_data.get('is_open_source', False),
@@ -416,7 +651,7 @@ class SuperGemsAnalyzer:
                 'has_documentation': analysis_data.get('has_documentation', False),
                 'is_commercially_focused': analysis_data.get('is_commercial', False),
                 'llm_reasoning': analysis_data.get('reasoning', ''),
-                'super_gem_score': self.calculate_super_gem_score(analysis_data, github_data),
+                'super_gem_score': self.calculate_super_gem_score(analysis_data, github_data, factual_implementation_quality),
                 'key_strengths': analysis_data.get('strengths', []),
                 'potential_concerns': analysis_data.get('concerns', []),
                 'similar_tools': analysis_data.get('similar_tools', []),
@@ -433,13 +668,16 @@ class SuperGemsAnalyzer:
             print(f"LLM Analysis error for post {post['id']}: {e}")
             return None
     
-    def calculate_super_gem_score(self, analysis: Dict, github_data: Dict) -> float:
+    def calculate_super_gem_score(self, analysis: Dict, github_data: Dict, factual_implementation_quality: float = None) -> float:
         """Calculate final super gem score with weighted factors"""
+        
+        # Use factual implementation quality if provided, otherwise fall back to analysis data
+        implementation_score = factual_implementation_quality if factual_implementation_quality is not None else analysis.get('implementation_quality', 0)
         
         base_score = (
             analysis.get('technical_innovation', 0) * 0.25 +
             analysis.get('problem_significance', 0) * 0.25 +
-            analysis.get('implementation_quality', 0) * 0.20 +
+            implementation_score * 0.20 +
             analysis.get('community_value', 0) * 0.20 +
             analysis.get('uniqueness', 0) * 0.10
         )

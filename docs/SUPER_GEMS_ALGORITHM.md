@@ -23,11 +23,13 @@ The system uses Google's Gemini 2.5 Flash Lite model with specific configuration
 - **Top-k**: 40
 - **Max Tokens**: 8192
 
-#### Phase 3: GitHub Repository Analysis (Optional)
-When GitHub repositories are detected, additional analysis includes:
-- Repository metadata (stars, forks, issues)
-- README quality assessment
-- License and documentation evaluation
+#### Phase 3: Enhanced GitHub Repository Analysis
+When GitHub repositories are detected, comprehensive analysis includes:
+- **6 GitHub API calls** per repository for detailed metrics
+- Repository metadata (stars, forks, issues, contributors, recent commits)
+- File structure analysis (tests, CI/CD, documentation, project files)
+- README quality assessment and license evaluation
+- Factual implementation quality scoring based on measurable development practices
 
 ## Scoring Methodology
 
@@ -64,15 +66,16 @@ The algorithm evaluates posts across five primary dimensions, each scored from 0
 - Infrastructure improvements
 - Security enhancements
 
-#### 3. Implementation Quality (Weight: 20%)
-**Definition**: Based on available information, how well-executed is the solution?
+#### 3. Implementation Quality (Weight: 20%) - **FACTUAL ASSESSMENT**
+**Definition**: Objective assessment based on measurable GitHub repository metrics.
 
-**Evaluation Criteria**:
-- Code organization and structure
-- Documentation quality
-- Error handling and edge cases
-- Performance considerations
-- User experience design
+**Factual Evaluation Criteria**:
+- **Repository Health (40%)**: GitHub stars, recent commits, issue management
+- **Documentation Quality (30%)**: README length/quality, docs directory, license presence  
+- **Project Structure (20%)**: Tests, CI/CD, requirements files, language diversity
+- **Development Activity (10%)**: Contributors, forks, community engagement
+
+**Note**: This dimension is calculated using factual GitHub API data, not LLM speculation.
 
 #### 4. Community Value (Weight: 20%)
 **Definition**: How valuable would this be to the Hacker News developer community?
@@ -176,11 +179,12 @@ EVALUATION GUIDELINES:
 ```
 
 **Key Design Principles**:
-1. **Emphasis on Technical Merit**: Focuses on implementation quality over factual verification
-2. **Recency Awareness**: Explicitly instructs the LLM to avoid penalizing recent developments
+1. **Factual Implementation Assessment**: Implementation quality calculated from measurable GitHub metrics only
+2. **Recency Awareness**: Explicitly instructs the LLM to avoid penalizing recent developments  
 3. **Community Focus**: Tailored specifically for HN developer audience
 4. **Open Source Preference**: Built-in bias toward open source solutions
 5. **Anti-Commercial Bias**: Reduces weight of purely promotional content
+6. **No Algorithmic Speculation**: Podcasts avoid numerical scores, focus on factual data and qualitative analysis
 
 ### GitHub Analysis Prompt
 
