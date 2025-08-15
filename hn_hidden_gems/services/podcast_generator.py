@@ -163,9 +163,8 @@ IMPORTANT for audio optimization:
 Structure:
 1. Brief introduction for this gem
 2. Explain the problem/innovation
-3. Technical highlights
-4. Community impact
-5. Conclusion with rating
+3. Technical highlights and implementation details
+4. Conclusion with rating
 
 Post Title: {gem_data.get('title', 'Unknown Title')}
 Post URL: {gem_data.get('url', 'No URL')}
@@ -175,13 +174,19 @@ Overall Rating: {analysis.get('overall_rating', 0)}
 Technical Innovation: {self._score_to_description(analysis.get('technical_innovation', '●'))}
 Problem Significance: {self._score_to_description(analysis.get('problem_significance', '●'))}
 Implementation Quality: {self._score_to_description(analysis.get('implementation_quality', '●'))}
-Community Value: {self._score_to_description(analysis.get('community_value', '●'))}
 Uniqueness: {self._score_to_description(analysis.get('uniqueness_score', '●'))}
 
 Detailed Analysis: {analysis.get('detailed_analysis', 'No detailed analysis available')}
 
 Strengths: {', '.join(analysis.get('strengths', []))}
 Areas for Improvement: {', '.join(analysis.get('areas_for_improvement', []))}
+
+Real Community Metrics (when available):
+- GitHub Stars: {gem_data.get('badges', {}).get('github_stars', 'Not available')}
+- Open Source: {'Yes' if gem_data.get('badges', {}).get('is_open_source') else 'No'}
+- Working Demo: {'Yes' if gem_data.get('badges', {}).get('has_demo') else 'No'}
+
+When available, mention real community metrics (GitHub stars, repository activity) rather than speculating about future community impact.
 
 Generate a 1-2 minute script segment for this individual gem (this is one of multiple gems in the episode). Make it engaging and informative. Focus only on this specific project."""
         
@@ -217,11 +222,25 @@ Generate a 1-2 minute script segment for this individual gem (this is one of mul
         author = gem_data.get('author', 'unknown developer')
         analysis = gem_data.get('analysis', {})
         
+        # Add real metrics if available
+        badges = gem_data.get('badges', {})
+        github_stars = badges.get('github_stars', 0)
+        is_open_source = badges.get('is_open_source', False)
+        has_demo = badges.get('has_demo', False)
+        
+        metrics_info = ""
+        if github_stars > 0:
+            metrics_info += f" The project has already gained {github_stars} GitHub stars, showing early community interest."
+        if is_open_source:
+            metrics_info += " It's open source, which encourages collaboration and transparency."
+        if has_demo:
+            metrics_info += " There's a working demo available for you to try."
+
         script = f"""Our next hidden gem comes from {author}, with a project called "{title}".
 
 This innovative solution tackles an important problem in the developer community. The technical approach shows {self._score_to_description(analysis.get('technical_innovation', '●'))} innovation, with {self._score_to_description(analysis.get('implementation_quality', '●'))} implementation quality.
 
-What makes this particularly interesting is its potential for community impact, which we've rated as {self._score_to_description(analysis.get('community_value', '●'))}.
+The project addresses a {self._score_to_description(analysis.get('problem_significance', '●'))} significance problem with a {self._score_to_description(analysis.get('uniqueness_score', '●'))} uniqueness in its approach.{metrics_info}
 
 {analysis.get('detailed_analysis', 'This project represents the kind of quality innovation we love to see from emerging developers in the Hacker News community.')}
 

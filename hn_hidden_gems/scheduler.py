@@ -686,15 +686,16 @@ class PostCollectionScheduler:
                     'url': gem.get('url'),
                     'author': gem.get('author'),
                     'analysis': gem.get('analysis', {}),
-                    'author_karma': 50  # Default for low-karma gems
+                    'author_karma': 50,  # Default for low-karma gems
+                    'badges': gem.get('badges', {})  # Include badges with GitHub stars
                 }
                 
                 # Add detailed analysis from performance indicators and other data
                 analysis = gem_entry['analysis']
                 analysis['overall_rating'] = gem.get('super_gem_score', 0)
                 analysis['detailed_analysis'] = f"This {gem.get('title', 'project')} demonstrates excellent technical merit with a super gem score of {gem.get('super_gem_score', 0):.1f}."
-                analysis['strengths'] = ["High-quality implementation", "Strong community value", "Innovative approach"]
-                analysis['areas_for_improvement'] = ["Documentation could be expanded"]
+                analysis['strengths'] = gem.get('strengths', ["High-quality implementation", "Innovative approach"])
+                analysis['areas_for_improvement'] = gem.get('concerns', ["Documentation could be expanded"])
                 
                 gems_data['gems'].append(gem_entry)
             
