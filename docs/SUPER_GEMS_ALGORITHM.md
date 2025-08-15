@@ -77,15 +77,15 @@ The algorithm evaluates posts across five primary dimensions, each scored from 0
 
 **Note**: This dimension is calculated using factual GitHub API data, not LLM speculation.
 
-#### 4. Community Value (Weight: 20%)
-**Definition**: How valuable would this be to the Hacker News developer community?
+#### 4. Community Value (Weight: 20%) - **FACTUAL ASSESSMENT**
+**Definition**: Objective assessment based on measurable community engagement metrics.
 
-**Evaluation Criteria**:
-- Relevance to HN audience interests
-- Educational value
-- Practical applicability
-- Discussion-worthy content
-- Knowledge sharing potential
+**Factual Evaluation Criteria**:
+- **Community Engagement (50%)**: GitHub stars, forks, watchers/subscribers
+- **Collaboration Value (30%)**: Contributors count, open source status
+- **Accessibility & Usability (20%)**: Documentation quality, working demos
+
+**Note**: This dimension is calculated using factual GitHub API data, not LLM speculation about hypothetical community value.
 
 #### 5. Uniqueness (Weight: 10%)
 **Definition**: How unique is this compared to existing solutions?
@@ -112,11 +112,11 @@ The algorithm evaluates posts across five primary dimensions, each scored from 0
 
 ```python
 base_score = (
-    technical_innovation * 0.25 +
-    problem_significance * 0.25 +
-    implementation_quality * 0.20 +
-    community_value * 0.20 +
-    uniqueness * 0.10
+    technical_innovation * 0.25 +        # LLM assessment
+    problem_significance * 0.25 +        # LLM assessment  
+    factual_implementation_quality * 0.20 +  # GitHub metrics
+    factual_community_value * 0.20 +         # GitHub metrics
+    uniqueness * 0.10                    # LLM assessment
 )
 
 final_score = base_score + bonuses - penalties
@@ -179,12 +179,14 @@ EVALUATION GUIDELINES:
 ```
 
 **Key Design Principles**:
-1. **Factual Implementation Assessment**: Implementation quality calculated from measurable GitHub metrics only
-2. **Recency Awareness**: Explicitly instructs the LLM to avoid penalizing recent developments  
-3. **Community Focus**: Tailored specifically for HN developer audience
-4. **Open Source Preference**: Built-in bias toward open source solutions
-5. **Anti-Commercial Bias**: Reduces weight of purely promotional content
-6. **No Algorithmic Speculation**: Podcasts avoid numerical scores, focus on factual data and qualitative analysis
+1. **Factual Assessment Priority**: Both implementation quality and community value calculated from measurable GitHub metrics only
+2. **No AI Speculation**: LLM focuses only on technical innovation, problem significance, and uniqueness
+3. **Recency Awareness**: Explicitly instructs the LLM to avoid penalizing recent developments  
+4. **Community Focus**: Tailored specifically for HN developer audience
+5. **Open Source Preference**: Built-in bias toward open source solutions
+6. **Anti-Commercial Bias**: Reduces weight of purely promotional content
+7. **No Algorithmic Speculation**: Podcasts avoid numerical scores, focus on factual data and qualitative analysis
+8. **Graceful Failure**: System returns no analysis rather than creating dummy/fake data
 
 ### GitHub Analysis Prompt
 

@@ -254,6 +254,9 @@ Configure the application using environment variables:
 - `GEMINI_API_KEY`: Google Gemini API key for super gems analysis (required for super gems feature)
 - **Enhanced GitHub Analysis**: Uses 6 GitHub API calls per repository for detailed metrics
 - **Factual Implementation Quality**: Based on measurable GitHub metrics (stars, commits, structure)
+- **Factual Community Value**: Based on measurable community engagement (stars, forks, contributors)
+- **No AI Speculation**: LLM only assesses technical innovation, problem significance, and uniqueness
+- **Graceful Failure**: Returns no analysis rather than creating dummy/fake data when LLM parsing fails
 - **Podcast Generation**: Avoids algorithmic scores, focuses on factual data and qualitative analysis
 - The system automatically applies knowledge-aware evaluation to avoid penalizing recent technology releases
 - Uses temperature=0.1 for consistent, focused AI responses
